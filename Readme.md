@@ -87,10 +87,10 @@ Once the slideshow generator is created, the slides will be placed in a new scen
    The slideshow generator panel will change to give settings for that specific slide.  
    * Rotation allows the rotation of the image in 90 degree increments, use this if the image is rotated wrong in the 3d view.  
    * A group of buttons for moving the slide are available:  
-      |<< - Will move the slide to the beginning of the slideshow.  
-      <   - Will move the slide back one place in the index.  
-      >   - Will move the slide forward one place in the index.  
-      >>| - Will move the slide to the end of the slideshow.  
+      * |<< - Will move the slide to the beginning of the slideshow.  
+      * <   - Will move the slide back one place in the index.  
+      * >   - Will move the slide forward one place in the index.  
+      * >>| - Will move the slide to the end of the slideshow.  
 
    * Lock Position excludes the slide from being sorted by the sort buttons.  This is helpful for setting the first or last slide, for instance.  
    * The Slide Length variable can be changed to make some slides longer or shorter.  
