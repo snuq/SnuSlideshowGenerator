@@ -56,11 +56,11 @@ The first step is to create the slideshow generator scene.  This is a special sc
 ## Configuring The Slideshow
 Once the slideshow generator is created, the slides will be placed in a new scene and presented in the 3d viewport.  Make sure the 3d view is set to 'Textured' or 'Material' display mode to be able to see the slide previews.  
 
-The Slideshow Generator panel should now be in Create Slideshow mode.
+### The Slideshow Generator panel should now be in Create Slideshow mode.
 * The 'Create Slideshow' button will finalize the slideshow that is set up.  
 * An accurate representation of the final slideshow length will be shown.  
 * Set the Crossfade Length to determine how long the fade between slides will be in the final slideshow.  
-* An audio track can be added to the slideshow automatically.  
+* An audio track can be added to the slideshow automatically:  
    * The 'Enable Audio Track' checkbox must be activated.  
    * Use the browse button next to the 'Audio Track' field to select an audio file.  This must be a format that Blender recognizes, or the audio will not be added.  
    * Loop Overlap is used when the slideshow is longer than the audio track.  The audio will be repeated as many times as needed, and this value will determine how much crossfade overlap (in frames) the repeated tracks have with each other.  
@@ -75,7 +75,7 @@ The Slideshow Generator panel should now be in Create Slideshow mode.
    Press 'a' to de/select all files in the directory.  
 
 
-In the 3d view:
+### In the 3d view:
 * Right-click-drag an object to move it.  
 * Right click to select an object.  When selected:
    Press 'g' to move the object.  Not all objects can be moved in all ways.  
