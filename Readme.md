@@ -82,6 +82,16 @@ Once the slideshow generator is created, the slides will be placed in a new scen
    Press 'r' to rotate the object.  Not all objects can be rotated.  
    Press 's' to scale the object.  Not all objects can be scaled.  
 
+* Selecting a View area:
+   Around each image slide is a rectangular box that represents the area of this slide that will be visible in the final slideshow.   
+   * This box can be rotated to adjust the angle the image will be displayed at.  
+   * This box can be scaled to crop the area of the slide that will be visible.  Scaling larger will make the slide smaller, scaling smaller will make the slide larger.  
+   * The box can be grabbed/moved to change the view area of the slide.  
+      Note that some transforms such as the zoom types, and the pan to target, will use this as the starting point for the movement.  
+
+* Selecting the Target:
+   At the center of each image slide is a cross that is the view target.  This target will be the focal point of the zoom and pan to target transforms.  This target can be grabbed/moved to change where a zoom or pan transform will end on.  
+
 * Selecting an image or video:  
    Grab the image to rearrange it in the sequence of images.  
    The slideshow generator panel will change to give settings for that specific slide.  
@@ -154,17 +164,6 @@ Once the slideshow generator is created, the slides will be placed in a new scen
       * The 'Lock Transition' checkbox will prevent this slide's transition from being affected by apply to buttons.  
 
 
-* Selecting a View area:
-   Around each image slide is a rectangular box that represents the area of this slide that will be visible in the final slideshow.   
-   * This box can be rotated to adjust the angle the image will be displayed at.  
-   * This box can be scaled to crop the area of the slide that will be visible.  Scaling larger will make the slide smaller, scaling smaller will make the slide larger.  
-   * The box can be grabbed/moved to change the view area of the slide.  
-      Note that some transforms such as the zoom types, and the pan to target, will use this as the starting point for the movement.  
-   
-
-* Selecting the Target:
-   At the center of each image slide is a cross that is the view target.  This target will be the focal point of the zoom and pan to target transforms.  This target can be grabbed/moved to change where a zoom or pan transform will end on.  
-
 
 ## Testing And Rendering The Slideshow
 Once the slides are all configured, click the 'Create Slideshow' button to generate the slideshow sequence.  The slideshow will be created in a new Scene called 'Slideshow'.  
@@ -209,7 +208,7 @@ Passed in variables are as follows:
    This is the empty that is shown in the slideshow generator as the cross.  
    This is used as the target for the transforms, but may have other uses.  
 
-* camera - A `<bpy_struct, Struct("Object")>`
+* camera - A `<bpy_struct, Struct("Object")>`  
    This is a camera, the scene camera.  
    This is already set up and parented to the transform, and will be moving and/or scaled in most cases.  
    The camera will be located about 1.93 blender units (depending on the transform) above the image_plane in the global z direction, and pointing in the global negative z direction.  
