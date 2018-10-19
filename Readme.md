@@ -121,34 +121,34 @@ Once the slideshow generator is created, the slides will be placed in a new scen
    * The currently selected extra will be shown.  
       Note that extras and all related options are not available for video slides.  
       A number of default extras are included, and more can be added with some python programming.  
-         * The 'Text Normal Top' and 'Text Normal Bottom' utilize the 'Extra Text' variable to add a title to the slide.  
-         * The 'Video Foreground' and 'Video Background' utilize the 'Extra Texture' variable to add an overlay or background image or video.  
-         * The extras will be affected by the 'Extra Amount' variable in different ways, mostly determining the strength of the effect.  
-            The Extra Amount should probably be kept between 0.25 and 0.75 for most effects.  A value of 0 will be none, or too little of the effect for normal usage.  A value of 0.5 will be an average amount.  A value of 1 will be too much of the effect for normal usage.  
-            * Background With Shadows Dark/Light: It will determine how bumpy the background is.  
-            * Blurred Scaled Image Background: It will determine how blurred the background is.  
-            * Compositor Glare: It will determine the threshold for the glare (how bright something is before it glares).  
-            * Image Glint: It will determine the amount of glint.  
-            * Overlay Curves Left/Right: It will determine how much the curves overlap the image.  
-            * Parallax Frame Overlay Landscape/Portrait: It will determine how far from the image the frame is, affecting the amount of parallax.  
-            * Plain Background With/Without Shadows: It will determine the brightness of the background.  
-            * Text Normal Bottom/Top: It will determine the extrude and bevel amount of the text.  
-            * Video Background/Foreground: It will determine how visible the image or video is.  
-            * Vignette: It will affect the contrast of the vignette.  
+      * The 'Text Normal Top' and 'Text Normal Bottom' utilize the 'Extra Text' variable to add a title to the slide.  
+      * The 'Video Foreground' and 'Video Background' utilize the 'Extra Texture' variable to add an overlay or background image or video.  
+      * The extras will be affected by the 'Extra Amount' variable in different ways, mostly determining the strength of the effect.  
+         The Extra Amount should probably be kept between 0.25 and 0.75 for most effects.  A value of 0 will be none, or too little of the effect for normal usage.  A value of 0.5 will be an average amount.  A value of 1 will be too much of the effect for normal usage.  
+         * Background With Shadows Dark/Light: It will determine how bumpy the background is.  
+         * Blurred Scaled Image Background: It will determine how blurred the background is.  
+         * Compositor Glare: It will determine the threshold for the glare (how bright something is before it glares).  
+         * Image Glint: It will determine the amount of glint.  
+         * Overlay Curves Left/Right: It will determine how much the curves overlap the image.  
+         * Parallax Frame Overlay Landscape/Portrait: It will determine how far from the image the frame is, affecting the amount of parallax.  
+         * Plain Background With/Without Shadows: It will determine the brightness of the background.  
+         * Text Normal Bottom/Top: It will determine the extrude and bevel amount of the text.  
+         * Video Background/Foreground: It will determine how visible the image or video is.  
+         * Vignette: It will affect the contrast of the vignette.  
 
       * Use the 'Apply To Selected' and 'Apply To All' buttons to apply the current extra to other slides.  
       * Lock Extra will prevent this slide from being affected by apply extra or randomize buttons.  
 
    * Transition To Next Slide can be selected from the drop-down menu.  
       This will control how the current slide image fades to the next one.  
-         * Crossfade is a standard smooth transition between the two slides.  
-         * Gamma Cross is a variation on the Crossfade, it is slightly brighter.  
-         * Wipe is a transition that will convert one slide to another using a moving line.  
-            Wipe settings will be available when it is selected, these correspond with the settings used by the 'Wipe' effect in Blender's VSE.  
-         * Custom allows the usage of a black and white video file as a mask to create a specialized transition.  
-            Click the browse button next to the 'Transition Video' field to select a video file to be used.  
-            These video files should be black-and-white only, and should start as fully black, and end with fully white.  
-            If no video, or an invalid video is given, the transition will instead be a default Crossfade.  
+      * Crossfade is a standard smooth transition between the two slides.  
+      * Gamma Cross is a variation on the Crossfade, it is slightly brighter.  
+      * Wipe is a transition that will convert one slide to another using a moving line.  
+         Wipe settings will be available when it is selected, these correspond with the settings used by the 'Wipe' effect in Blender's VSE.  
+      * Custom allows the usage of a black and white video file as a mask to create a specialized transition.  
+         Click the browse button next to the 'Transition Video' field to select a video file to be used.  
+         These video files should be black-and-white only, and should start as fully black, and end with fully white.  
+         If no video, or an invalid video is given, the transition will instead be a default Crossfade.  
 
       * The 'Apply To Selected' and 'Apply To All' buttons will apply the current transition to other slides.  
       * The 'Lock Transition' checkbox will prevent this slide's transition from being affected by apply to buttons.  
@@ -194,36 +194,36 @@ The script must have the following function:
 `def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_text, extra_texture):`  
 
 Passed in variables are as follows:
-   * image_scene - A <bpy_struct, Struct("Scene")>  
-      This is the scene that the slide has been created in.  
-      The script should be working in this scene.  The function should start with setting the current scene to the image_scene.  
+* image_scene - A `<bpy_struct, Struct("Scene")>`  
+   This is the scene that the slide has been created in.  
+   The script should be working in this scene.  The function should start with setting the current scene to the image_scene.  
 
-   * image_plane - A <bpy_struct, Struct("Object")>  
-      This is a mesh plane with one face.  
-      This is the plane object that the slide image is on.  
-      This mesh will be centered at point (0, 0, 0), it will be 1 blender unit in size along the y axis, and it will be facing in the positive global z direction.  
-      The generator script does not animate this in any way.  
+* image_plane - A `<bpy_struct, Struct("Object")>`  
+   This is a mesh plane with one face.  
+   This is the plane object that the slide image is on.  
+   This mesh will be centered at point (0, 0, 0), it will be 1 blender unit in size along the y axis, and it will be facing in the positive global z direction.  
+   The generator script does not animate this in any way.  
 
-   * target_empty - A <bpy_struct, Struct("Object")>  
-      This is a "Plain Axes" type of empty.  
-      This is the empty that is shown in the slideshow generator as the cross.  
-      This is used as the target for the transforms, but may have other uses.  
+* target_empty - A `<bpy_struct, Struct("Object")>`  
+   This is a "Plain Axes" type of empty.  
+   This is the empty that is shown in the slideshow generator as the cross.  
+   This is used as the target for the transforms, but may have other uses.  
 
-   * camera - A <bpy_struct, Struct("Object")>
-      This is a camera, the scene camera.  
-      This is already set up and parented to the transform, and will be moving and/or scaled in most cases.  
-      The camera will be located about 1.93 blender units (depending on the transform) above the image_plane in the global z direction, and pointing in the global negative z direction.  
-      If you wish for an object to be stationary relative to the camera, make sure to parent it to this.  
+* camera - A `<bpy_struct, Struct("Object")>`
+   This is a camera, the scene camera.  
+   This is already set up and parented to the transform, and will be moving and/or scaled in most cases.  
+   The camera will be located about 1.93 blender units (depending on the transform) above the image_plane in the global z direction, and pointing in the global negative z direction.  
+   If you wish for an object to be stationary relative to the camera, make sure to parent it to this.  
 
-   * extra_amount - A float variable between 0.0 and 1.0.  
-      This is exposed to the UI and is meant to control the 'strength' of the extra scene - for instance the amount of blur on a blurred background, or the extrusion amount of text.  
-      The value of 0.5 should be a nice average amount, 0 should be too little for normal usage, and 1 should be too much for normal usage.  
+* extra_amount - A float variable between 0.0 and 1.0.  
+   This is exposed to the UI and is meant to control the 'strength' of the extra scene - for instance the amount of blur on a blurred background, or the extrusion amount of text.  
+   The value of 0.5 should be a nice average amount, 0 should be too little for normal usage, and 1 should be too much for normal usage.  
 
-   * extra_text - A string variable.  
-      This is exposed to the UI and can be used for text objects in the extra scene.  
+* extra_text - A string variable.  
+   This is exposed to the UI and can be used for text objects in the extra scene.  
 
-   * extra_texture - A <bpy_struct, Struct("Image")>, or a None if not able to be loaded.  
-      This is exposed to the UI and can be a still image or a video.  
+* extra_texture - A `<bpy_struct, Struct("Image")>`, or a `None` if not able to be loaded.  
+   This is exposed to the UI and can be a still image or a video.  
 
 
 
