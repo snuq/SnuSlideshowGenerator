@@ -77,19 +77,19 @@ Once the slideshow generator is created, the slides will be placed in a new scen
 
 ### In the 3d view:
 * Right-click-drag an object to move it.  
-* Right click to select an object.  When selected:
+* Right click to select an object.  When selected:  
    Press 'g' to move the object.  Not all objects can be moved in all ways.  
    Press 'r' to rotate the object.  Not all objects can be rotated.  
    Press 's' to scale the object.  Not all objects can be scaled.  
 
-* Selecting a View area:
+* Selecting a View area:  
    Around each image slide is a rectangular box that represents the area of this slide that will be visible in the final slideshow.   
    * This box can be rotated to adjust the angle the image will be displayed at.  
    * This box can be scaled to crop the area of the slide that will be visible.  Scaling larger will make the slide smaller, scaling smaller will make the slide larger.  
    * The box can be grabbed/moved to change the view area of the slide.  
       Note that some transforms such as the zoom types, and the pan to target, will use this as the starting point for the movement.  
 
-* Selecting the Target:
+* Selecting the Target:  
    At the center of each image slide is a cross that is the view target.  This target will be the focal point of the zoom and pan to target transforms.  This target can be grabbed/moved to change where a zoom or pan transform will end on.  
 
 * Selecting an image or video:  
