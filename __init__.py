@@ -19,10 +19,15 @@
 #Known bugs:
 #   aspect ratio isnt detected properly for videos with non-square pixels... not sure how to detect this.
 
-#todo: scene update handler will be removed in blender 2.8... think about using a modal operator instead
-#      how to enable/disable? maybe checkbox in 3d view header?
-#      can it be auto-run on scene switch/file load?
-#      add graphic overlay to 3d view to make it obvious this is running
+#todo: move generator panel to a 3d view tools panel, this will ensure the user has at least one 3d view open, rethink scene view snapping also
+#todo: update for 2.8:
+#   scene update handler replaced with depsgraph_update_post
+#   panel labels need to be: .label(text="") now
+#   update variables that are set to classes to: 'var: Class'
+#   context.screen.scene is now context.window.scene
+#   remove all references to layers
+#   rework render engine to use eevee and nodes instead of blender internal
+
 
 import bpy
 import random
@@ -38,8 +43,8 @@ bl_info = {
     "name": "Snu Slideshow Generator",
     "description": "Assists in creating image slideshows with a variety of options.",
     "author": "Hudson Barkley (Snu)",
-    "version": (0, 8, 1),
-    "blender": (2, 79, 0),
+    "version": (0, 8, 2),
+    "blender": (2, 80, 0),
     "location": "Properties Area, Scene Tab, 'Snu Slideshow Generator' Panel.",
     "wiki_url": "https://github.com/snuq/SnuSlideshowGenerator",
     "category": "Import-Export"
