@@ -20,13 +20,6 @@
 #   aspect ratio isnt detected properly for videos with non-square pixels... not sure how to detect this.
 
 #todo: move generator panel to a 3d view tools panel, this will ensure the user has at least one 3d view open, rethink scene view snapping also
-#todo: update for 2.8:
-#   scene update handler replaced with depsgraph_update_post
-#   panel labels need to be: .label(text="") now
-#   update variables that are set to classes to: 'var: Class'
-#   context.screen.scene is now context.window.scene
-#   remove all references to layers
-#   rework render engine to use eevee and nodes instead of blender internal
 
 
 import bpy
@@ -151,6 +144,19 @@ transforms = [
 ]
 
 
+def update_scene(scene):
+    for view_layer in scene.view_layers:
+        view_layer.update()
+        view_layer.objects.update()
+
+
+def select_plane(image_plane, scene):
+    if image_plane:
+        if image_plane.name in bpy.context.view_layer.objects:  #Bug in Blender 2.8... seems this doesnt get updated when called from a panel
+            image_plane.select_set(True)
+            bpy.context.view_layer.objects.active = image_plane
+
+
 def is_generator_scene(scene):
     if scene.name == 'Slideshow Generator':
         return True
@@ -189,7 +195,7 @@ def get_fps(scene):
 def create_scene(oldscene, scenename):
     #Creates a new scene and copies over render settings from current scene
     newscene = bpy.data.scenes.new(scenename)
-    bpy.context.screen.scene = newscene
+    bpy.context.window.scene = newscene
 
     #These loops are needed because there apparently is no way to easily copy the render settings from one scene to another
     for prop in oldscene.render.bl_rna.properties:
@@ -211,12 +217,8 @@ def create_scene(oldscene, scenename):
     newscene.view_settings.view_transform = oldscene.view_settings.view_transform  #really not sure why this is needed, but it is...?
 
     #Set variables that are specific to the slideshow scene
-    newscene.render.engine = 'BLENDER_RENDER'
-    newscene.game_settings.material_mode = 'GLSL'
-    newscene.layers = [True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True]
+    newscene.render.engine = 'BLENDER_EEVEE'
     newscene.render.resolution_percentage = 100
-    newscene.render.antialiasing_samples = '5'
-    newscene.render.pixel_filter_type = 'BOX'
     newscene.render.image_settings.color_mode = 'RGB'
     return newscene
 
@@ -224,6 +226,101 @@ def create_scene(oldscene, scenename):
 def aspect_ratio(scene):
     render = scene.render
     return (render.pixel_aspect_x * render.resolution_x) / (render.pixel_aspect_y * render.resolution_y)
+
+
+def get_material_elements(material, image_name):
+    #Gets the material nodes for the given material.  If the material is corrupted, will recreate and return the fixed one, if image cannot be found, returns None.
+    tree = material.node_tree
+    nodes = tree.nodes
+    coordinates = None
+    mapping = None
+    texture = None
+    shadeless = None
+    shaded = None
+    mix = None
+    output = None
+    for node in nodes:
+        if node.type == 'TEX_COORD':
+            coordinates = node
+        if node.type == 'MAPPING':
+            mapping = node
+        if node.type == 'TEX_IMAGE':
+            texture = node
+        if node.type == 'EMISSION':
+            shadeless = node
+        if node.type == 'BSDF_PRINCIPLED':
+            shaded = node
+        if node.type == 'MIX_SHADER':
+            mix = node
+        if node.type == 'OUTPUT_MATERIAL':
+            output = node
+    if coordinates is None or mapping is None or texture is None or shadeless is None or shaded is None or mix is None or output is None:
+        if texture is not None:
+            image = texture.image
+        elif image_name in bpy.data.images:
+            image = bpy.data.images[image_name]
+        else:
+            return None
+        return setup_material(material, image)
+    else:
+        material_nodes = {
+            'coordinates': coordinates,
+            'mapping': mapping,
+            'texture': texture,
+            'shadeless': shadeless,
+            'shaded': shaded,
+            'mix': mix,
+            'output': output
+        }
+        return material_nodes
+
+
+def setup_material(material, image):
+    #Setup an image/video material
+    material.use_nodes = True
+    tree = material.node_tree
+    nodes = tree.nodes
+    nodes.clear()
+
+    #Create nodes
+    coordinates = nodes.new('ShaderNodeTexCoord')
+    coordinates.location = (-1000, 0)
+    mapping = nodes.new('ShaderNodeMapping')
+    mapping.location = (-800, 0)
+    texture = nodes.new('ShaderNodeTexImage')
+    texture.image = image
+    texture.image_user.frame_duration = image.frame_duration
+    texture.image_user.frame_offset = 0
+    texture.image_user.use_auto_refresh = True
+    texture.location = (-400, 0)
+    shadeless = nodes.new('ShaderNodeEmission')
+    shadeless.location = (0, 0)
+    shaded = nodes.new('ShaderNodeBsdfPrincipled')
+    shaded.location = (-100, -150)
+    mix = nodes.new('ShaderNodeMixShader')
+    mix.location = (200, 0)
+    mix.inputs[0].default_value = 0
+    output = nodes.new('ShaderNodeOutputMaterial')
+    output.location = (400, 0)
+
+    #Connect nodes
+    tree.links.new(coordinates.outputs['UV'], mapping.inputs[0])
+    tree.links.new(mapping.outputs[0], texture.inputs[0])
+    tree.links.new(texture.outputs[0], shadeless.inputs[0])
+    tree.links.new(texture.outputs[0], shaded.inputs[0])
+    tree.links.new(shadeless.outputs[0], mix.inputs[1])
+    tree.links.new(shaded.outputs[0], mix.inputs[2])
+    tree.links.new(mix.outputs[0], output.inputs[0])
+    material_nodes = {
+        'coordinates': coordinates,
+        'mapping': mapping,
+        'texture': texture,
+        'shadeless': shadeless,
+        'shaded': shaded,
+        'mix': mix,
+        'output': output
+    }
+    return material_nodes
 
 
 def import_slideshow_image(image, image_number, slide_length, generator_scene, video=False, last_image=None):
@@ -236,7 +333,7 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
         print('Importing image '+str(image_number)+', filename: '+image.name)
 
     #create and set up image plane
-    bpy.context.scene.cursor_location = (0.0, 0.0, 0.0)
+    bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
     image_mesh = bpy.data.meshes.new(name=image.name)
     ix = ((image.size[0] / image.size[1])/2)
     iy = 0.5
@@ -244,7 +341,7 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
     faces = [(3, 2, 1, 0)]
     image_mesh.from_pydata(verts, [], faces)
     image_plane = bpy.data.objects.new(name=image.name, object_data=image_mesh)
-    generator_scene.objects.link(image_plane)
+    generator_scene.collection.objects.link(image_plane)
     image_plane.slideshow.name = image_plane.name
 
     add_constraints(image_plane, 'Plane')
@@ -259,18 +356,9 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
 
     #set up and apply material to plane
     image_material = bpy.data.materials.new(image_plane.name)
-    image_material.use_shadeless = True
-    image_texture = bpy.data.textures.new(image_plane.name, type='IMAGE')
-    image_texture.image = image
-    image_texture_slot = image_material.texture_slots.add()
-    image_texture_slot.texture = image_texture
-    image_plane.data.uv_textures.new()
-    image_texture_slot.texture_coords = 'UV'
+    image_plane.data.uv_layers.new()
     image_plane.data.materials.append(image_material)  #set material to plane
-    if video:
-        image_texture.image_user.frame_duration = image.frame_duration
-        image_texture.image_user.use_auto_refresh = True
-        image_texture.image_user.frame_offset = 0
+    setup_material(image_material, image)
 
     #set up transform and extras
     if not video:
@@ -321,26 +409,26 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
         #add target empty
         target_empty = bpy.data.objects.new(name=image_plane.name+' Target', object_data=None)
         target_empty.parent = image_plane
-        target_empty.empty_draw_size = 1
+        target_empty.empty_display_size = 1
         add_constraints(target_empty, 'Target')
         image_plane.slideshow.target = target_empty.name
-        generator_scene.objects.link(target_empty)
+        generator_scene.collection.objects.link(target_empty)
 
         #add view empty
         view_empty = bpy.data.objects.new(name=image_plane.name+' View', object_data=None)
         view_empty.parent = image_plane
-        view_empty.empty_draw_size = 1
+        view_empty.empty_display_size = 1
         view_empty.scale = aspect_ratio(generator_scene) / 2, .5, .001
-        view_empty.empty_draw_type = 'CUBE'
+        view_empty.empty_display_type = 'CUBE'
         add_constraints(view_empty, 'View')
         image_plane.slideshow.view = view_empty.name
-        generator_scene.objects.link(view_empty)
+        generator_scene.collection.objects.link(view_empty)
 
     #add text next to plane saying which index number it is
     index_text_name = image_plane.name+' Index'
     index_text_data = bpy.data.curves.new(name=index_text_name, type='FONT')
     index_text = bpy.data.objects.new(name=index_text_name, object_data=index_text_data)
-    generator_scene.objects.link(index_text)
+    generator_scene.collection.objects.link(index_text)
     index_text.parent = image_plane
     index_text.location = (-1, -.33, 0)
     index_text.data.align_x = 'RIGHT'
@@ -351,7 +439,7 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
         transform_text_name = image_plane.name+' Transform'
         transform_text_data = bpy.data.curves.new(name=transform_text_name, type='FONT')
         transform_text = bpy.data.objects.new(name=transform_text_name, object_data=transform_text_data)
-        generator_scene.objects.link(transform_text)
+        generator_scene.collection.objects.link(transform_text)
         transform_text.parent = image_plane
         transform_text.location = (1, 0, 0)
         transform_text.scale = .15, .15, 1
@@ -361,7 +449,7 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
         extra_text_name = image_plane.name+' Extra'
         extra_text_data = bpy.data.curves.new(name=extra_text_name, type='FONT')
         extra_text = bpy.data.objects.new(name=extra_text_name, object_data=extra_text_data)
-        generator_scene.objects.link(extra_text)
+        generator_scene.collection.objects.link(extra_text)
         extra_text.parent = image_plane
         extra_text.location = (1, -.25, 0)
         extra_text.scale = .15, .15, 1
@@ -371,14 +459,14 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
     length_text_name = image_plane.name+' Length'
     length_text_data = bpy.data.curves.new(name=length_text_name, type='FONT')
     length_text = bpy.data.objects.new(name=length_text_name, object_data=length_text_data)
-    generator_scene.objects.link(length_text)
+    generator_scene.collection.objects.link(length_text)
     length_text.parent = image_plane
     length_text.location = (1, .25, 0)
     length_text.scale = .15, .15, 1
     add_constraints(length_text, 'Text')
 
     #create group and add everything to it
-    image_group = bpy.data.groups.new(image_plane.name)
+    image_group = bpy.data.collections.new(image_plane.name)
     image_group.objects.link(image_plane)
     image_group.objects.link(index_text)
     image_group.objects.link(length_text)
@@ -389,8 +477,6 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
         image_group.objects.link(view_empty)
 
     #additional settings
-    image_plane.select = True
-    bpy.context.scene.objects.active = image_plane
     image_plane.slideshow.index = image_number + 1
     if not video:
         image_plane.slideshow.length = slide_length
@@ -404,7 +490,7 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
 
 def add_constraints(constraint_object, constraint_type):
     #This function handles adding constraints to the various objects of the slideshow generator scene
-    bpy.context.scene.objects.active = constraint_object
+    bpy.context.view_layer.objects.active = constraint_object
     rotation_constraint = constraint_object.constraints.new(type='LIMIT_ROTATION')
     location_constraint = constraint_object.constraints.new(type='LIMIT_LOCATION')
     scale_constraint = constraint_object.constraints.new(type='LIMIT_SCALE')
@@ -486,23 +572,23 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         image_scene_frames = (get_fps(image_scene) * image_plane.slideshow.length)
         image_scene.frame_end = image_scene_frames
 
-        bpy.context.screen.scene = generator_scene
+        bpy.context.window.scene = generator_scene
         bpy.ops.object.select_all(action='DESELECT')
-        image_plane.select = True
+        image_plane.select_set(True)
         target_empty = generator_scene.objects[image_plane.slideshow.target]
-        target_empty.select = True
+        target_empty.select_set(True)
         view_empty = generator_scene.objects[image_plane.slideshow.view]
-        view_empty.select = True
+        view_empty.select_set(True)
         bpy.ops.object.make_links_scene(scene=image_scene.name)
 
         #set scene
-        bpy.context.screen.scene = image_scene
+        bpy.context.window.scene = image_scene
 
         #create transforms
         bpy.ops.object.select_all(action='DESELECT')
-        image_scene.cursor_location = (0.0, 0.0, 0.0)
+        image_scene.cursor.location = (0.0, 0.0, 0.0)
         bpy.ops.object.empty_add()
-        transform_empty = bpy.context.scene.objects.active
+        transform_empty = bpy.context.active_object
         transform_index = get_transform(image_plane.slideshow.transform)
         if transform_index >= 0:
             transform = transforms[transform_index]
@@ -585,16 +671,17 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 point.handle_right = (pointx + pointsize, pointy)
 
         #set up camera location scale and animation
-        bpy.context.scene.cursor_location = (0.0, 0.0, 0.0)
+        bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
         bpy.ops.object.camera_add()
-        camera = bpy.context.scene.objects.active
+        camera = bpy.context.active_object
         camera.parent = transform_empty
         image_scene.camera = camera
-        camera.data.dof_object = image_plane
+        camera.data.dof.focus_object = image_plane
+        camera.data.dof.use_dof = True
 
         #add camera_scale empty that will scale the transform and camera
         bpy.ops.object.empty_add()
-        camera_scale = bpy.context.scene.objects.active
+        camera_scale = bpy.context.active_object
         camera_scale.parent = image_plane
         transform_empty.parent = camera_scale
         camera_scale.location = view_empty.location
@@ -613,11 +700,12 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                     script = __import__(file)
                     sys.path.remove(folder)
                     image = load_image(bpy.path.abspath(image_plane.slideshow.extratexture))
-                    script.extra(image_scene=image_scene, image_plane=image_plane, target_empty=target_empty, camera=camera, extra_amount=image_plane.slideshow.extraamount, extra_text=image_plane.slideshow.extratext, extra_texture=image)
+                    #Todo: update this command with new variables, update all extra scripts
+                    #script.extra(image_scene=image_scene, image_plane=image_plane, target_empty=target_empty, camera=camera, extra_amount=image_plane.slideshow.extraamount, extra_text=image_plane.slideshow.extratext, extra_texture=image)
                     del script
                 except ImportError:
                     pass
-        image_scene.update()
+        update_scene(image_scene)
 
         #Add the image scene to the slideshow scene
         clip = slideshow_scene.sequence_editor.sequences.new_scene(scene=image_scene, name=image_scene.name, channel=((i % 2) + 1), frame_start=image_scene_start)
@@ -659,7 +747,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 audioclip = None
 
             else:
-                bpy.context.screen.scene = slideshow_scene
+                bpy.context.window.scene = slideshow_scene
                 #Add fadein/out to audio clip
                 slideshow_scene.frame_current = image_scene_start
                 audioclip.volume = 0
@@ -792,7 +880,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         else:
             clip.channel = base_channel
 
-    bpy.context.screen.scene = slideshow_scene
+    bpy.context.window.scene = slideshow_scene
 
     #Add fade in
     if i == 0:
@@ -955,14 +1043,17 @@ def update_offset(self, context):
     #Callback for SlideshowImage.videooffset to update the image texture's offset
     current_scene = bpy.data.scenes['Slideshow Generator']
     image_plane = current_scene.objects[self.name]
-    texture = image_plane.material_slots[0].material.texture_slots[0].texture
+    material = image_plane.material_slots[0].material
+    material_nodes = get_material_elements(material, image_plane.slideshow.name)
+    if material_nodes is None:
+        return
     maxlength = round(self.videomaxlength / get_fps(current_scene), 2) - 1
     if round(self.videooffset, 2) > maxlength:
         self.videooffset = maxlength
         offset = int(self.length * get_fps(current_scene))
     else:
         offset = int(self.videooffset * get_fps(current_scene))
-    texture.image_user.frame_offset = offset
+    material_nodes['texture'].image_user.frame_offset = offset
     update_slide_length(self, context)
 
 
@@ -1005,9 +1096,11 @@ def update_rotate(self, context):
     current_scene = bpy.data.scenes['Slideshow Generator']
     image_plane = current_scene.objects[self.name]
     mesh = image_plane.data
-    image_material = image_plane.material_slots[0].material
-    image = image_material.texture_slots[0].texture.image
-
+    material = image_plane.material_slots[0].material
+    material_nodes = get_material_elements(material, image_plane.slideshow.name)
+    if material_nodes is None:
+        return
+    image = material_nodes['texture'].image
     iy = 0.5
     if self.rotate == '0':
         ix = ((image.size[0] / image.size[1])/2)
@@ -1070,14 +1163,15 @@ def update_aspect(slide, scene, aspect):
         pass
 
 
-def update_order(mode='none'):
+def update_order(mode='none', current_scene=None):
     #This function is called by the modal autoupdate and by various operators.  It arranges and positions the slides in the way they need to be.
     #   Setting 'mode' to 'none' will place the slides in the exact positions they should be, and update their index values
     #   Setting 'mode' to 'random' will rearrange the slides in a random order
     #   Setting 'mode' to 'alphabetical' will arrange the slides in alphabetical order
     #   Setting 'mode' to 'reverse' will arrange the slides in reverse alphabetical order
 
-    current_scene = bpy.context.scene
+    if not current_scene:
+        current_scene = bpy.context.scene
     slides = list_slides(current_scene)
 
     if mode == 'none':
@@ -1095,7 +1189,7 @@ def update_order(mode='none'):
                 slide[1].slideshow.index = i
                 changed = True
         if changed:
-            current_scene.update()
+            update_scene(current_scene)
     else:
         #Resort the slides in a specific way
 
@@ -1136,136 +1230,137 @@ def get_first_3d_view():
 
 class SnuSlideshowExtraTexturePreset(bpy.types.PropertyGroup):
     #A property group for a texture preset for the extra scenes
-    name = bpy.props.StringProperty(
+    name: bpy.props.StringProperty(
         name="Texture Name",
         default="None")
-    path = bpy.props.StringProperty(
+    path: bpy.props.StringProperty(
         name="Texture Path",
         default="None")
 
 
 class SnuSlideshowImage(bpy.types.PropertyGroup):
     #A property group that contains the information needed for a slideshow image.  This is appended to a slide image plane object.
-    name = bpy.props.StringProperty(
+    name: bpy.props.StringProperty(
         name="Image Name",
         default="None")
-    transform = bpy.props.StringProperty(
+    transform: bpy.props.StringProperty(
         name="Transform Type Name",
         default="None",
         update=update_transform)
-    length = bpy.props.FloatProperty(
+    length: bpy.props.FloatProperty(
         name="Slide Length (Seconds)", 
         default=4, 
         min=1,
         update=update_slide_length,
         description="Slide Length In Seconds")
-    videooffset = bpy.props.IntProperty(
+    videooffset: bpy.props.IntProperty(
         name="Video Offset (Frames)",
         default=0,
         min=0,
         description="Video Offset In Frames",
         update=update_offset)
-    videoaudio = bpy.props.BoolProperty(
+    videoaudio: bpy.props.BoolProperty(
         name="Enable Audio",
         default=True,
         description="Import Audio Track When Importing Video")
-    videomaxlength = bpy.props.IntProperty(
+    videomaxlength: bpy.props.IntProperty(
         name="Video Maximum Length",
         default=0)
-    videolength = bpy.props.IntProperty(
+    videolength: bpy.props.IntProperty(
         name="Slide Length (Frames)",
         default=1,
         min=0,
         update=update_video_length,
         description="Video Slide Length In Frames")
-    videofile = bpy.props.StringProperty(
+    videofile: bpy.props.StringProperty(
         name="Video Filename",
         default="")
-    extra = bpy.props.StringProperty(
+    extra: bpy.props.StringProperty(
         name="Extra Type", 
         default="None",
         update=update_extra)
-    imageplane = bpy.props.StringProperty(
+    imageplane: bpy.props.StringProperty(
         name="Image Plane Name", 
         default="None")
-    target = bpy.props.StringProperty(
+    target: bpy.props.StringProperty(
         name="Target Empty Name", 
         default="None")
-    view = bpy.props.StringProperty(
+    view: bpy.props.StringProperty(
         name="View Window Empty Name", 
         default="None")
-    extraamount = bpy.props.FloatProperty(
+    extraamount: bpy.props.FloatProperty(
         name="Amount For The Extra Scene",
         default=0.5,
         max=1,
         min=0,
         description="Determines the power of the effect for the extra scene - 0.5 is average")
-    extratext = bpy.props.StringProperty(
+    extratext: bpy.props.StringProperty(
         name="Text For The Extra Scene",
         default="None",
         description="Used for extra scenes with a text object")
-    extratexture = bpy.props.StringProperty(
+    extratexture: bpy.props.StringProperty(
         name="Texture For The Extra Scene",
         default="None",
         description="Used for extra scenes with a video background or overlay")
-    index = bpy.props.IntProperty(
+    index: bpy.props.IntProperty(
         name="Image Index",
         default=0,
         update=update_index)
-    lockposition = bpy.props.BoolProperty(
+    lockposition: bpy.props.BoolProperty(
         name="Lock Position",
         default=False)
-    locktransform = bpy.props.BoolProperty(
+    locktransform: bpy.props.BoolProperty(
         name="Lock Transform",
         default=False)
-    lockextra = bpy.props.BoolProperty(
+    lockextra: bpy.props.BoolProperty(
         name="Lock Extra",
         default=False)
-    locklength = bpy.props.BoolProperty(
+    locklength: bpy.props.BoolProperty(
         name="Lock Length",
         default=False)
-    locktransition = bpy.props.BoolProperty(
+    locktransition: bpy.props.BoolProperty(
         name="Lock Transition",
         default=False)
-    rotate = bpy.props.EnumProperty(
+    rotate: bpy.props.EnumProperty(
         name="Rotation",
         items=[('0', '0', '0'), ('90', '90', '90'), ('180', '180', '180'), ('-90', '-90', '-90')],
         update=update_rotate)
-    videobackground = bpy.props.BoolProperty(
+    videobackground: bpy.props.BoolProperty(
         name="Blurred Background",
         default=True,
         description="When the video is smaller than the render resolution, add a blurred scaled background instead of black")
-    transition = bpy.props.EnumProperty(
+    transition: bpy.props.EnumProperty(
         name="Transition Type",
         default="CROSS",
         items=[("CROSS", "Crossfade", "", 1), ("GAMMA_CROSS", "Gamma Cross", "", 2), ("WIPE", "Wipe", "", 3), ("CUSTOM", "Custom", "", 4)])
-    wipe_type = bpy.props.EnumProperty(
+    wipe_type: bpy.props.EnumProperty(
         name="Wipe Type",
         default="SINGLE",
         items=[("SINGLE", "Single", "", 1), ("DOUBLE", "Double", "", 2), ("IRIS", "Iris", "", 3), ("CLOCK", "Clock", "", 4)])
-    wipe_direction = bpy.props.EnumProperty(
+    wipe_direction: bpy.props.EnumProperty(
         name="Wipe Direction",
         default="OUT",
         items=[("OUT", "Out", "", 1), ("IN", "In", "", 2)])
-    wipe_soft = bpy.props.BoolProperty(
+    wipe_soft: bpy.props.BoolProperty(
         name="Soft Wipe",
         default=True)
-    wipe_angle = bpy.props.EnumProperty(
+    wipe_angle: bpy.props.EnumProperty(
         name="Wipe Angle",
         default="DOWN",
         items=[("DOWN", "Down", "", 1), ("RIGHT", "Right", "", 2), ("UP", "Up", "", 3), ("LEFT", "Left", "", 4)])
-    custom_transition_file = bpy.props.StringProperty(
+    custom_transition_file: bpy.props.StringProperty(
         name="Transition File",
         default="",
         description="Location of custom transition file.",
         subtype='FILE_PATH')
 
 
-class SnuSlideshowVSEPanel(bpy.types.Panel):
+class SSG_PT_VSEPanel(bpy.types.Panel):
     #This is the panel that is visible in the VSE of the 'Slideshow' scene.
     bl_label = "Snu Slideshow Generator"
     bl_space_type = 'SEQUENCE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Strip"
 
     @classmethod
     def poll(cls, context):
@@ -1286,8 +1381,6 @@ class SnuSlideshowVSEPanel(bpy.types.Panel):
         layout = self.layout
         layout.operator('slideshow.preview_mode', text="Apply 50% Render Size").mode = 'halfsize'
         layout.operator('slideshow.preview_mode', text="Apply 100% Render Size").mode = 'fullsize'
-        layout.operator('slideshow.preview_mode', text="Disable Antialiasing").mode = 'aliasing'
-        layout.operator('slideshow.preview_mode', text="Enable Antialiasing").mode = 'antialiasing'
         layout.operator('slideshow.gotogenerator', text="Return To The Generator Scene")
 
 
@@ -1299,12 +1392,11 @@ class SnuSlideshowGotoGenerator(bpy.types.Operator):
     def execute(self, context):
         if "Slideshow Generator" in bpy.data.scenes:
             generator_scene = bpy.data.scenes['Slideshow Generator']
-            context.screen.scene = generator_scene
-            try:
-                context.window.screen = bpy.data.screens['Default']
-                bpy.data.screens['Default'].scene = generator_scene
-            except KeyError:
-                pass
+            context.window.scene = generator_scene
+            workspace_name = generator_scene.snu_slideshow_generator.generator_workspace
+            if workspace_name in bpy.data.workspaces:
+                workspace = bpy.data.workspaces[workspace_name]
+                context.window.workspace = workspace
         return{'FINISHED'}
 
 
@@ -1313,12 +1405,10 @@ class SnuSlideshowPreviewMode(bpy.types.Operator):
     #'mode' can be set to:
     #   halfsize - Set the rendering to 50% size
     #   fullsize - Set the rendering to 100% size
-    #   aliasing - Disable antialiasing
-    #   antialiasing - Enable antialiasing
     bl_idname = 'slideshow.preview_mode'
     bl_label = 'Enable or Disable Preview On All Scenes'
 
-    mode = bpy.props.StringProperty()
+    mode: bpy.props.StringProperty()
 
     def execute(self, context):
         sequences = context.scene.sequence_editor.sequences_all
@@ -1329,14 +1419,10 @@ class SnuSlideshowPreviewMode(bpy.types.Operator):
                     scene.render.resolution_percentage = 50
                 elif self.mode == 'fullsize':
                     scene.render.resolution_percentage = 100
-                elif self.mode == 'aliasing':
-                    scene.render.use_antialiasing = False
-                elif self.mode == 'antialiasing':
-                    scene.render.use_antialiasing = True
         return{'FINISHED'}
 
 
-class SnuSlideshowPanel(bpy.types.Panel):
+class SSG_PT_Panel(bpy.types.Panel):
     #This is the main configuration panel for the slideshow generator and generator creator
     bl_label = "Snu Slideshow Generator"
     bl_space_type = 'PROPERTIES'
@@ -1352,16 +1438,15 @@ class SnuSlideshowPanel(bpy.types.Panel):
             row = layout.row()
             if len(slides):
                 layout.operator_context = 'INVOKE_SCREEN'  #needed to solve issues with context.scene not updating
-
                 row.operator('slideshow.create')
 
                 row = layout.row()
                 #Calculate and display slideshow length
                 slideshow_seconds = slideshow_length(slides=slides)
                 slideshow_length_formatted = format_seconds(slideshow_seconds)
-                row.label(str(len(slides)) + " Slides, Total Length: "+slideshow_length_formatted)
+                row.label(text=str(len(slides)) + " Slides, Total Length: "+slideshow_length_formatted)
             else:
-                row.label("No Slides Found")
+                row.label(text="No Slides Found")
 
             row = layout.row()
             row.prop(context.scene.snu_slideshow_generator, "crossfade_length")
@@ -1370,9 +1455,9 @@ class SnuSlideshowPanel(bpy.types.Panel):
             row = box.row()
             row.prop(context.scene.snu_slideshow_generator, "audio_enabled", text="Enable Audio Track")
             row = box.row()
-            split = row.split(percentage=.9, align=True)
+            split = row.split(factor=.9, align=True)
             split.prop(context.scene.snu_slideshow_generator, "audio_track", text="Audio Track")
-            split.operator('slideshow.open_audio', text="", icon='FILESEL')
+            split.operator('slideshow.open_audio', text="", icon='FILEBROWSER')
             if not context.scene.snu_slideshow_generator.audio_enabled:
                 row.enabled = False
             row = box.row()
@@ -1386,12 +1471,12 @@ class SnuSlideshowPanel(bpy.types.Panel):
             if len(slides):
                 #Sorting options
                 row = layout.row(align=True)
-                row.label('Sort:')
+                row.label(text='Sort:')
                 row.operator('slideshow.update_order', text='Randomize').mode = 'random'
                 row.operator('slideshow.update_order', text='Alphabetical').mode = 'alphabetical'
                 row.operator('slideshow.update_order', text='Reverse Alpha').mode = 'reverse'
                 row = layout.row(align=True)
-                row.label('Randomize:')
+                row.label(text='Randomize:')
                 row.operator('slideshow.apply_transform', text='Transforms').transform = 'Random'
                 row.operator('slideshow.apply_extra', text='Extras').extra = 'Random'
 
@@ -1402,19 +1487,19 @@ class SnuSlideshowPanel(bpy.types.Panel):
                 row.operator('slideshow.delete_slide')
                 row = layout.row()
                 row.separator()
-                selected = context.scene.objects.active
+                selected = context.active_object
                 if selected.slideshow.name != "None":
                     #If a slide image is selected, display configuration options
                     current_slide = selected.slideshow
                     box = layout.box()
                     row = box.row()
-                    row.label("Image: "+current_slide.name)
+                    row.label(text="Image: "+current_slide.name)
                     row = box.row()
                     row.prop(current_slide, 'rotate')
                     row = box.row()
-                    split = row.split(percentage=.5)
+                    split = row.split(factor=.5)
                     subsplit = split.split(align=True)
-                    subsplit.label(""+str(current_slide.index + 1))
+                    subsplit.label(text=""+str(current_slide.index + 1))
                     subsplit.operator("slideshow.move_slide", text="", icon="REW").move = "beginning"
                     subsplit.operator("slideshow.move_slide", text="", icon="PLAY_REVERSE").move = "backward"
                     subsplit.operator("slideshow.move_slide", text="", icon="PLAY").move = "forward"
@@ -1435,18 +1520,18 @@ class SnuSlideshowPanel(bpy.types.Panel):
                     if not current_slide.videofile:
                         innerbox = box.box()
                         row = innerbox.row()
-                        row.label("Transform: "+current_slide.transform)
+                        row.label(text="Transform: "+current_slide.transform)
                         row = innerbox.row()
-                        row.menu('slideshow.transforms_menu', text="Change Transform")
+                        row.menu('SSG_MT_transforms_menu', text="Change Transform")
                         row = innerbox.row()
                         row.operator('slideshow.apply_transform', text="Apply To Selected").transform = 'Selected'
                         row.operator('slideshow.apply_transform').transform = 'None'
                         row.prop(current_slide, "locktransform")
                         innerbox = box.box()
                         row = innerbox.row()
-                        row.label("Extra: "+current_slide.extra)
+                        row.label(text="Extra: "+current_slide.extra)
                         row = innerbox.row()
-                        row.menu('slideshow.extra_menu', text="Change Extra")
+                        row.menu('SSG_MT_extra_menu', text="Change Extra")
                         row = innerbox.row()
                         row.operator('slideshow.apply_extra', text="Apply To Selected").extra = 'Selected'
                         row.operator('slideshow.apply_extra').extra = 'None'
@@ -1455,14 +1540,14 @@ class SnuSlideshowPanel(bpy.types.Panel):
                         row.separator()
                         row = innerbox.row()
                         row.prop(current_slide, "extratext", text='Extra Text')
-                        row = innerbox.split(percentage=0.8)
-                        split = row.split(percentage=.9, align=True)
+                        row = innerbox.split(factor=0.8)
+                        split = row.split(factor=.9, align=True)
                         split.prop(current_slide, "extratexture", text='Extra Texture')
-                        split.operator('slideshow.open_extra_texture', text="", icon='FILESEL').target = 'slide'
-                        split = row.split(percentage=1, align=True)
+                        split.operator('slideshow.open_extra_texture', text="", icon='FILEBROWSER').target = 'slide'
+                        split = row.split(factor=1, align=True)
                         split.operator('slideshow.add_extra_texture').texture = current_slide.extratexture
                         row = innerbox.row()
-                        row.menu('slideshow.extra_texture_menu', text="Apply Extra Texture Preset")
+                        row.menu('SSG_MT_extra_texture_menu', text="Apply Extra Texture Preset")
                         row = innerbox.row()
                         row.prop(current_slide, "extraamount", text='Extra Amount')
 
@@ -1476,7 +1561,7 @@ class SnuSlideshowPanel(bpy.types.Panel):
                         row.prop(current_slide, "videobackground", text='Add Blurred Background If Needed')
                     innerbox = box.box()
                     row = innerbox.row()
-                    row.label("Transition To Next Slide:")
+                    row.label(text="Transition To Next Slide:")
                     row = innerbox.row()
                     row.prop(current_slide, "transition", text="")
                     row = innerbox.row()
@@ -1498,33 +1583,33 @@ class SnuSlideshowPanel(bpy.types.Panel):
                     row = layout.row()
                     row.separator()
                     row = layout.box()
-                    row.label("Drag an image up or down to rearrange it in the timeline.")
+                    row.label(text="Drag an image up or down to rearrange it in the timeline.")
 
                 elif 'View' in selected.name:
                     #The view area rectangle is probably selected
                     row = layout.box()
-                    row.label("The rectangle is the area the camera will see.")
-                    row.label("It can be scaled down to crop the image,")
-                    row.label("or rotated to rotate the camera,")
-                    row.label("or moved to focus on a specific area.")
+                    row.label(text="The rectangle is the area the camera will see.")
+                    row.label(text="It can be scaled down to crop the image,")
+                    row.label(text="or rotated to rotate the camera,")
+                    row.label(text="or moved to focus on a specific area.")
 
                 elif 'Target' in selected.name:
                     #The zoom to target is probably selected
                     row = layout.box()
-                    row.label("The cross is the target for transforms like zoom in.")
-                    row.label("It can be moved around the image.")
+                    row.label(text="The cross is the target for transforms like zoom in.")
+                    row.label(text="It can be moved around the image.")
 
                 else:
                     #Something else is selected
                     row = layout.box()
-                    row.label("Select An Image To Customize It")
+                    row.label(text="Select An Image To Customize It")
 
             else:
                 #Nothing is selected
                 row = layout.row()
                 row.separator()
                 row = layout.box()
-                row.label("Select An Image To Customize It")
+                row.label(text="Select An Image To Customize It")
 
         else:
             #Panel is in create generator mode
@@ -1545,34 +1630,34 @@ class SnuSlideshowPanel(bpy.types.Panel):
             if not image_list:
                 #row.enabled = False
                 row = layout.row()
-                row.label("Image Directory Invalid Or Empty")
+                row.label(text="Image Directory Invalid Or Empty")
             else:
                 #row.enabled = True
                 row = layout.row()
                 slideshow_seconds = slideshow_length(slides=image_list)
                 slideshow_length_formatted = format_seconds(slideshow_seconds)
-                row.label(str(len(image_list)) + " Images In Directory")
+                row.label(text=str(len(image_list)) + " Images In Directory")
                 row = layout.row()
-                row.label("Estimated Length: "+slideshow_length_formatted)
+                row.label(text="Estimated Length: "+slideshow_length_formatted)
 
             row = layout.row()
             row.separator()
             box = layout.box()
             row = box.row()
-            row.menu('slideshow.transforms_menu', text="Toggle Transforms")
+            row.menu('SSG_MT_transforms_menu', text="Toggle Transforms")
             row = box.row()
-            row.menu('slideshow.extra_menu', text="Toggle Extras")
+            row.menu('SSG_MT_extra_menu', text="Toggle Extras")
             row = layout.row()
             row.separator()
             box = layout.box()
-            row = box.split(percentage=0.8)
-            split = row.split(percentage=.9, align=True)
+            row = box.split(factor=0.8)
+            split = row.split(factor=.9, align=True)
             split.prop(context.scene.snu_slideshow_generator, "extra_texture", text='Extra Texture')
-            split.operator('slideshow.open_extra_texture', text="", icon='FILESEL').target = 'scene'
-            split = row.split(percentage=1, align=True)
+            split.operator('slideshow.open_extra_texture', text="", icon='FILEBROWSER').target = 'scene'
+            split = row.split(factor=1, align=True)
             split.operator('slideshow.add_extra_texture').texture = context.scene.snu_slideshow_generator.extra_texture
             row = box.row()
-            row.menu('slideshow.extra_texture_menu', text="Extra Texture Presets")
+            row.menu('SSG_MT_extra_texture_menu', text="Extra Texture Presets")
 
 
 class SnuSlideshowMoveSlide(bpy.types.Operator):
@@ -1585,10 +1670,10 @@ class SnuSlideshowMoveSlide(bpy.types.Operator):
     bl_idname = 'slideshow.move_slide'
     bl_label = "Move The Active Slide"
 
-    move = bpy.props.StringProperty()
+    move: bpy.props.StringProperty()
 
     def execute(self, context):
-        selected = context.scene.objects.active
+        selected = context.active_object
         slide = selected.slideshow
         slides = list_slides(context.scene)
         if self.move == "forward":
@@ -1610,9 +1695,9 @@ class SnuSlideshowOpenExtraTexture(bpy.types.Operator):
     bl_label = 'Browse For An Image Or Video File'
 
     #The browsed to file is stored in this variable
-    filepath = bpy.props.StringProperty()
+    filepath: bpy.props.StringProperty()
 
-    target = bpy.props.StringProperty()
+    target: bpy.props.StringProperty()
 
     def invoke(self, context, event):
         del event
@@ -1628,12 +1713,10 @@ class SnuSlideshowOpenExtraTexture(bpy.types.Operator):
     def execute(self, context):
         #This function is called when the file browser dialog is closed with an ok
         if self.target == 'slide':
-            current_scene = context.scene
-            current_slide = current_scene.objects.active
+            current_slide = context.active_object
             current_slide.slideshow.extratexture = self.filepath
         else:
-            current_scene = context.scene
-            current_scene.snu_slideshow_generator.extra_texture = self.filepath
+            context.scene.snu_slideshow_generator.extra_texture = self.filepath
 
         return{'FINISHED'}
 
@@ -1644,7 +1727,7 @@ class SnuSlideshowOpenAudio(bpy.types.Operator):
     bl_label = 'Browse For An Audio File'
 
     #The browsed to file is stored in this variable
-    filepath = bpy.props.StringProperty()
+    filepath: bpy.props.StringProperty()
 
     def invoke(self, context, event):
         del event
@@ -1670,12 +1753,12 @@ class SnuSlideshowAddSlide(bpy.types.Operator):
     bl_label = 'Add New Slide(s)'
 
     #The files selected by the browser are stored in this
-    files = bpy.props.CollectionProperty(
+    files: bpy.props.CollectionProperty(
         name="File Path",
         type=bpy.types.OperatorFileListElement)
 
     #The browsed to directory is stored in this variable
-    directory = bpy.props.StringProperty(
+    directory: bpy.props.StringProperty(
         subtype="DIR_PATH")
 
     def invoke(self, context, event):
@@ -1715,12 +1798,13 @@ class SnuSlideshowAddSlide(bpy.types.Operator):
                 else:
                     #oops, this file is not an image or video
                     self.report({'WARNING'}, os.path.split(filename)[1]+' Is Not An Image')
+        select_plane(last_image, generator_scene)
         return{'FINISHED'}
 
 
 class SnuSlideshowExtraMenu(bpy.types.Menu):
     #This is the popup menu for selecting or toggling extras
-    bl_idname = 'slideshow.extra_menu'
+    bl_idname = 'SSG_MT_extra_menu'
     bl_label = 'List of available extras'
 
     def draw(self, context):
@@ -1795,7 +1879,7 @@ class SnuSlideshowHideExtra(bpy.types.Operator):
     bl_label = 'Hide Extra From Randomize Operations'
     bl_description = 'Hide Extra From Randomize Operations'
 
-    extra = bpy.props.StringProperty()
+    extra: bpy.props.StringProperty()
 
     def execute(self, context):
         scene = context.scene
@@ -1813,18 +1897,17 @@ class SnuSlideshowChangeExtra(bpy.types.Operator):
     bl_idname = 'slideshow.change_extra'
     bl_label = 'Change Extra'
 
-    extra = bpy.props.StringProperty()
+    extra: bpy.props.StringProperty()
 
     def execute(self, context):
-        current_scene = context.scene
-        current_image = current_scene.objects.active
+        current_image = context.active_object
         current_image.slideshow.extra = self.extra
         return{'FINISHED'}
 
 
 class SnuSlideshowTransformsMenu(bpy.types.Menu):
     #This is a menu of the transforms and allows for them to be disabled
-    bl_idname = 'slideshow.transforms_menu'
+    bl_idname = 'SSG_MT_transforms_menu'
     bl_label = 'List of available transforms'
 
     def draw(self, context):
@@ -1881,7 +1964,7 @@ class SnuSlideshowHideTransform(bpy.types.Operator):
     bl_label = 'Hide Transform From Randomize Operations'
     bl_description = 'Hide Transform From Randomize Operations'
 
-    transform = bpy.props.StringProperty()
+    transform: bpy.props.StringProperty()
 
     def execute(self, context):
         scene = context.scene
@@ -1899,11 +1982,10 @@ class SnuSlideshowChangeTransform(bpy.types.Operator):
     bl_idname = 'slideshow.change_transform'
     bl_label = 'Change Transform'
 
-    transform = bpy.props.StringProperty()
+    transform: bpy.props.StringProperty()
 
     def execute(self, context):
-        current_scene = context.scene
-        current_image = current_scene.objects.active
+        current_image = context.active_object
         current_image.slideshow.transform = self.transform
         return{'FINISHED'}
 
@@ -1914,7 +1996,7 @@ class SnuSlideshowApplyExtra(bpy.types.Operator):
     bl_label = 'Apply To All'
     bl_description = 'Applies an extra to all slides'
 
-    extra = bpy.props.StringProperty()
+    extra: bpy.props.StringProperty()
 
     def execute(self, context):
         update_order()
@@ -1924,12 +2006,12 @@ class SnuSlideshowApplyExtra(bpy.types.Operator):
         extras = list_extras()
         hidden = context.scene.snu_slideshow_generator.hidden_extras.split(";")
         randomized = []
-        current_slide = context.scene.objects.active
+        current_slide = context.active_object
 
         if self.extra == 'Selected':
             objects = current_scene.objects
             for scene_object in objects:
-                if scene_object.select:
+                if scene_object.select_get():
                     if scene_object.slideshow.name != "None":
                         if not scene_object.slideshow.lockextra:
                             scene_object.slideshow.extra = current_slide.slideshow.extra
@@ -1996,12 +2078,12 @@ class SnuSlideshowApplyTransform(bpy.types.Operator):
     bl_label = 'Apply To All'
     bl_description = 'Applies a transform to all slides'
 
-    transform = bpy.props.StringProperty()
+    transform: bpy.props.StringProperty()
 
     def execute(self, context):
         update_order()
         current_scene = context.scene
-        current_slide = current_scene.objects.active
+        current_slide = context.active_object
         slides = list_slides(current_scene)
         slides.sort(key=lambda x: x.slideshow.index)
         hidden = context.scene.snu_slideshow_generator.hidden_transforms.split(";")
@@ -2010,7 +2092,7 @@ class SnuSlideshowApplyTransform(bpy.types.Operator):
         if self.transform == 'Selected':
             objects = current_scene.objects
             for scene_object in objects:
-                if scene_object.select:
+                if scene_object.select_get():
                     if scene_object.slideshow.name != "None":
                         if not scene_object.slideshow.locktransform:
                             scene_object.slideshow.transform = current_slide.slideshow.transform
@@ -2052,7 +2134,7 @@ class SnuSlideshowApplyTransition(bpy.types.Operator):
     bl_label = 'Apply To All'
     bl_description = 'Applies a transition to all slides'
 
-    transition = bpy.props.StringProperty()
+    transition: bpy.props.StringProperty()
 
     def apply_transition(self, selected, target):
         #copies transition details from selected to target
@@ -2066,13 +2148,13 @@ class SnuSlideshowApplyTransition(bpy.types.Operator):
     def execute(self, context):
         update_order()
         current_scene = context.scene
-        current_slide = current_scene.objects.active
+        current_slide = context.active_object
         slides = list_slides(current_scene)
         slides.sort(key=lambda x: x.slideshow.index)
 
         for slide in slides:
             if not slide.slideshow.locktransition:
-                if (self.transition == 'Selected' and slide.select) or self.transition != 'Selected':
+                if (self.transition == 'Selected' and slide.select_get()) or self.transition != 'Selected':
                     self.apply_transition(current_slide.slideshow, slide.slideshow)
 
         return{'FINISHED'}
@@ -2084,15 +2166,15 @@ class SnuSlideshowApplySlideLength(bpy.types.Operator):
     bl_label = 'Apply To All'
     bl_description = 'Applies current slide length to all slides'
 
-    mode = bpy.props.StringProperty()
+    mode: bpy.props.StringProperty()
 
     def execute(self, context):
         current_scene = context.scene
-        current_slide = current_scene.objects.active
+        current_slide = context.active_object
         if self.mode == 'Selected':
             objects = current_scene.objects
             for scene_object in objects:
-                if scene_object.select:
+                if scene_object.select_get():
                     if scene_object.slideshow.name != "None":
                         if not scene_object.slideshow.locklength:
                             scene_object.slideshow.length = current_slide.slideshow.length
@@ -2111,7 +2193,7 @@ class SnuSlideshowUpdateOrder(bpy.types.Operator):
     bl_idname = 'slideshow.update_order'
     bl_label = 'Update Slide Order'
 
-    mode = bpy.props.StringProperty()
+    mode: bpy.props.StringProperty()
 
     def execute(self, context):
         del context
@@ -2137,9 +2219,9 @@ class SnuSlideshowDeleteSlide(bpy.types.Operator):
             if selected.slideshow.name != "None":
                 #The selected object is a slide, delete it and all its sub-objects
                 bpy.ops.object.select_all(action='DESELECT')
-                group = selected.users_group[0]
+                group = selected.users_collection[0]
                 for group_object in group.objects:
-                    group_object.select = True
+                    group_object.select_set(True)
                 bpy.ops.object.delete()
                 update_order()
         return{'FINISHED'}
@@ -2151,7 +2233,7 @@ class SnuSlideshowAddExtraTexture(bpy.types.Operator):
     bl_label = '+'
     bl_description = 'Adds a texture preset to the extra textures'
 
-    texture = bpy.props.StringProperty()
+    texture: bpy.props.StringProperty()
 
     def execute(self, context):
         texturename = os.path.split(self.texture)[1]
@@ -2172,7 +2254,7 @@ class SnuSlideshowRemoveExtraTexture(bpy.types.Operator):
     bl_label = '-'
     bl_description = 'Removes a texture preset from the extra textures'
 
-    texture = bpy.props.StringProperty()
+    texture: bpy.props.StringProperty()
 
     def execute(self, context):
         remove = os.path.split(self.texture)[1]
@@ -2187,7 +2269,7 @@ class SnuSlideshowRemoveExtraTexture(bpy.types.Operator):
 
 class SnuSlideshowExtraTextureMenu(bpy.types.Menu):
     #This is a menu to list extra texture presets
-    bl_idname = 'slideshow.extra_texture_menu'
+    bl_idname = 'SSG_MT_extra_texture_menu'
     bl_label = 'List of saved extra textures'
 
     def draw(self, context):
@@ -2208,12 +2290,12 @@ class SnuSlideshowChangeExtraTexture(bpy.types.Operator):
     bl_idname = 'slideshow.change_extra_texture'
     bl_label = 'Change Extra Texture'
 
-    texture = bpy.props.StringProperty()
+    texture: bpy.props.StringProperty()
 
     def execute(self, context):
         current_scene = context.scene
         if is_generator_scene(current_scene):
-            current_image = current_scene.objects.active
+            current_image = context.active_object
             current_image.slideshow.extratexture = self.texture
         else:
             current_scene.snu_slideshow_generator.extra_texture = self.texture
@@ -2228,6 +2310,7 @@ class SnuSlideshowCreate(bpy.types.Operator):
 
     def execute(self, context):
         generator_scene = bpy.data.scenes['Slideshow Generator']
+        generator_scene.snu_slideshow_generator.generator_workspace = context.workspace.name
 
         #Set up the Slideshow scene
         if 'Slideshow' in bpy.data.scenes:
@@ -2236,13 +2319,13 @@ class SnuSlideshowCreate(bpy.types.Operator):
         image_scene_start = 1
 
         #Create a copy of the currently active and selected objects so they can be re-set later
-        active = context.scene.objects.active
+        active = context.active_object
         selected = []
         for scene_object in context.scene.objects:
-            if scene_object.select:
+            if scene_object.select_get():
                 selected.append(scene_object)
 
-        context.screen.scene = slideshow_scene
+        context.window.scene = slideshow_scene
 
         #Iterate through image list, create scene for each image, and import into VSE
         images = list_slides(generator_scene)
@@ -2302,8 +2385,7 @@ class SnuSlideshowCreate(bpy.types.Operator):
 
         #Attempt to switch to the video editor screen layout
         try:
-            context.window.screen = bpy.data.screens['Video Editing']
-            bpy.data.screens['Video Editing'].scene = slideshow_scene
+            context.window.workspace = bpy.data.workspaces['Video Editing']
         except KeyError:
             pass
 
@@ -2316,10 +2398,10 @@ class SnuSlideshowCreate(bpy.types.Operator):
         #Return the selected and active objects to the way they were before the slideshow generation
         for scene_object in context.scene.objects:
             if scene_object in selected:
-                scene_object.select = True
+                scene_object.select_set(True)
             else:
-                scene_object.select = False
-        context.scene.objects.active = active
+                scene_object.select_set(False)
+        context.view_layer.objects.active = active
 
         return{'FINISHED'}
 
@@ -2363,6 +2445,7 @@ class SnuSlideshowGenerator(bpy.types.Operator):
         #create scene, switch to it, and set up properties
         oldscene = context.scene
         generator_scene = create_scene(oldscene, 'Slideshow Generator')
+        #context.window.scene = generator_scene
         generator_scene.snu_slideshow_generator.crossfade_length = 10
         generator_scene.snu_slideshow_generator.slide_length = slide_length
         generator_scene.snu_slideshow_generator.hidden_transforms = oldscene.snu_slideshow_generator.hidden_transforms
@@ -2379,18 +2462,19 @@ class SnuSlideshowGenerator(bpy.types.Operator):
         #        for space in area.spaces:
         #            if space.type == 'VIEW_3D':
         if space:
-            space.viewport_shade = 'TEXTURED'
+            if space.shading.type not in ['MATERIAL', 'RENDERED']:
+                space.shading.type = 'MATERIAL'
             space.region_3d.view_rotation = (1.0, 0, 0, 0)
             space.region_3d.view_perspective = 'ORTHO'
-            space.show_floor = False
-            space.show_only_render = False
-            space.show_relationship_lines = False
+            space.overlay.show_floor = False
+            space.overlay.show_cursor = False
+            space.overlay.show_relationship_lines = False
             space.lock_cursor = True
 
         #Add header instruction text
         instructions_data = bpy.data.curves.new(name='Instructions', type='FONT')
         instructions = bpy.data.objects.new(name='Instructions', object_data=instructions_data)
-        generator_scene.objects.link(instructions)
+        generator_scene.collection.objects.link(instructions)
         instructions.location = (-1, 1.25, 0.0)
         instructions.scale = (.15, .15, .15)
         instructions.data.body = "Select an image and see the Scene tab in the properties area for details.\nDrag an image to rearrange it in the timeline.\nThe center cross on each image represents the focal point for transformations.\nThe box surrounding each image represents the viewable area for the cameara.\nMove, scale, and rotate this to change the viewable area."
@@ -2404,69 +2488,71 @@ class SnuSlideshowGenerator(bpy.types.Operator):
             last_image = import_slideshow_image(image, image_number, slide_length, generator_scene, video=is_video, last_image=last_image)
             image_number += 1
 
-        context.scene.cursor_location = (0, 0, 0)
+        select_plane(last_image, generator_scene)
+        context.scene.cursor.location = (0, 0, 0)
         print("Now displaying images, this may take a while...")
 
-        #For some reason, blender refuses to update the scene if it is currently active, so work around needed...
-        context.screen.scene = oldscene
-        generator_scene.update()
-        context.screen.scene = generator_scene
+        update_scene(generator_scene)
+        update_order(current_scene=generator_scene)
 
         return{'FINISHED'}
 
 
 class SnuSlideshowGeneratorSettings(bpy.types.PropertyGroup):
     #snu_slideshow_generator.audio_loop_fade
-    hidden_transforms = bpy.props.StringProperty(
+    hidden_transforms: bpy.props.StringProperty(
         name="Hidden Transforms",
         default="",
         description="List of transforms to not use in randomize operations")
-    hidden_extras = bpy.props.StringProperty(
+    hidden_extras: bpy.props.StringProperty(
         name="Hidden Extras",
         default="Text Normal Bottom;Text Normal Top;Parallax Frame Overlay Landscape;Parallax Frame Overlay Portrait;Video Background;Video Foreground;Compositor Glare;Overlay Curves Left;Overlay Curves Right",
         description="List of extras to not use in randomize operations")
-    image_directory = bpy.props.StringProperty(
+    image_directory: bpy.props.StringProperty(
         name="Image Directory",
         default='/Images/',
         description="Location of images used in slideshow",
         subtype='DIR_PATH')
-    slide_length = bpy.props.FloatProperty(
+    slide_length: bpy.props.FloatProperty(
         name="Slide Length (Seconds)",
         default=4,
         min=1,
         max=20,
         description="Slide Scene Length In Seconds")
-    crossfade_length = bpy.props.IntProperty(
+    crossfade_length: bpy.props.IntProperty(
         name="Crossfade Length (Frames)",
         default=10,
         min=0,
         max=120)
-    extra_texture = bpy.props.StringProperty(
+    extra_texture: bpy.props.StringProperty(
         name="Extra Texture",
         default="None")
-    extra_texture_presets = bpy.props.CollectionProperty(
+    extra_texture_presets: bpy.props.CollectionProperty(
         type=SnuSlideshowExtraTexturePreset)
-    audio_enabled = bpy.props.BoolProperty(
+    audio_enabled: bpy.props.BoolProperty(
         default=False)
-    audio_track = bpy.props.StringProperty(
+    audio_track: bpy.props.StringProperty(
         name="Audio Track",
         default="None")
-    audio_fade_length = bpy.props.IntProperty(
+    audio_fade_length: bpy.props.IntProperty(
         name="Fade Out",
         description="Length of audio fade out in frames",
         default=30,
         min=0,
         max=600)
-    audio_loop_fade = bpy.props.IntProperty(
+    audio_loop_fade: bpy.props.IntProperty(
         name="Loop Overlap",
         description="Length of audio overlap when track is looped in frames",
         default=60,
         min=0,
         max=600)
+    generator_workspace: bpy.props.StringProperty(
+        name="Generator Scene Workspace",
+        default='')
 
 
-classes = [SnuSlideshowExtraTexturePreset, SnuSlideshowImage, SnuSlideshowVSEPanel, SnuSlideshowGotoGenerator,
-           SnuSlideshowPreviewMode, SnuSlideshowPanel, SnuSlideshowMoveSlide, SnuSlideshowOpenExtraTexture,
+classes = [SnuSlideshowExtraTexturePreset, SnuSlideshowImage, SSG_PT_VSEPanel, SnuSlideshowGotoGenerator,
+           SnuSlideshowPreviewMode, SSG_PT_Panel, SnuSlideshowMoveSlide, SnuSlideshowOpenExtraTexture,
            SnuSlideshowOpenAudio, SnuSlideshowAddSlide, SnuSlideshowExtraMenu, SnuSlideshowHideAllExtras,
            SnuSlideshowHideExtra, SnuSlideshowChangeExtra, SnuSlideshowTransformsMenu, SnuSlideshowHideAllTransforms,
            SnuSlideshowHideTransform, SnuSlideshowChangeTransform, SnuSlideshowApplyExtra, SnuSlideshowApplyTransform,
@@ -2484,7 +2570,7 @@ def register():
 
     bpy.types.Object.slideshow = bpy.props.PointerProperty(type=SnuSlideshowImage)
 
-    handlers = bpy.app.handlers.scene_update_post
+    handlers = bpy.app.handlers.depsgraph_update_post
     for handler in handlers:
         if " slideshow_autoupdate " in str(handler):
             handlers.remove(handler)
@@ -2492,7 +2578,7 @@ def register():
 
 
 def unregister():
-    handlers = bpy.app.handlers.scene_update_post
+    handlers = bpy.app.handlers.depsgraph_update_post
     for handler in handlers:
         if " slideshow_autoupdate " in str(handler):
             handlers.remove(handler)
