@@ -20,6 +20,7 @@
 #   aspect ratio isnt detected properly for videos with non-square pixels... not sure how to detect this.
 
 #todo: move generator panel to a 3d view tools panel, this will ensure the user has at least one 3d view open, rethink scene view snapping also
+#todo: update all extras
 
 
 import bpy
@@ -232,18 +233,12 @@ def get_material_elements(material, image_name):
     #Gets the material nodes for the given material.  If the material is corrupted, will recreate and return the fixed one, if image cannot be found, returns None.
     tree = material.node_tree
     nodes = tree.nodes
-    coordinates = None
-    mapping = None
     texture = None
     shadeless = None
     shaded = None
     mix = None
     output = None
     for node in nodes:
-        if node.type == 'TEX_COORD':
-            coordinates = node
-        if node.type == 'MAPPING':
-            mapping = node
         if node.type == 'TEX_IMAGE':
             texture = node
         if node.type == 'EMISSION':
@@ -254,7 +249,7 @@ def get_material_elements(material, image_name):
             mix = node
         if node.type == 'OUTPUT_MATERIAL':
             output = node
-    if coordinates is None or mapping is None or texture is None or shadeless is None or shaded is None or mix is None or output is None:
+    if texture is None or shadeless is None or shaded is None or mix is None or output is None:
         if texture is not None:
             image = texture.image
         elif image_name in bpy.data.images:
@@ -264,8 +259,6 @@ def get_material_elements(material, image_name):
         return setup_material(material, image)
     else:
         material_nodes = {
-            'coordinates': coordinates,
-            'mapping': mapping,
             'texture': texture,
             'shadeless': shadeless,
             'shaded': shaded,
@@ -283,10 +276,6 @@ def setup_material(material, image):
     nodes.clear()
 
     #Create nodes
-    coordinates = nodes.new('ShaderNodeTexCoord')
-    coordinates.location = (-1000, 0)
-    mapping = nodes.new('ShaderNodeMapping')
-    mapping.location = (-800, 0)
     texture = nodes.new('ShaderNodeTexImage')
     texture.image = image
     texture.image_user.frame_duration = image.frame_duration
@@ -304,16 +293,12 @@ def setup_material(material, image):
     output.location = (400, 0)
 
     #Connect nodes
-    tree.links.new(coordinates.outputs['UV'], mapping.inputs[0])
-    tree.links.new(mapping.outputs[0], texture.inputs[0])
     tree.links.new(texture.outputs[0], shadeless.inputs[0])
     tree.links.new(texture.outputs[0], shaded.inputs[0])
     tree.links.new(shadeless.outputs[0], mix.inputs[1])
     tree.links.new(shaded.outputs[0], mix.inputs[2])
     tree.links.new(mix.outputs[0], output.inputs[0])
     material_nodes = {
-        'coordinates': coordinates,
-        'mapping': mapping,
         'texture': texture,
         'shadeless': shadeless,
         'shaded': shaded,
@@ -700,8 +685,24 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                     script = __import__(file)
                     sys.path.remove(folder)
                     image = load_image(bpy.path.abspath(image_plane.slideshow.extratexture))
-                    #Todo: update this command with new variables, update all extra scripts
-                    #script.extra(image_scene=image_scene, image_plane=image_plane, target_empty=target_empty, camera=camera, extra_amount=image_plane.slideshow.extraamount, extra_text=image_plane.slideshow.extratext, extra_texture=image)
+                    material = image_plane.material_slots[0].material
+                    material_nodes = get_material_elements(material, image_plane.slideshow.name)
+                    if material_nodes is not None:
+                        data = {
+                            'image_scene': image_scene,
+                            'image_plane': image_plane,
+                            'material': material,
+                            'material_texture': material_nodes['texture'],
+                            'material_shadeless': material_nodes['shadeless'],
+                            'material_shaded': material_nodes['shaded'],
+                            'material_mix': material_nodes['mix'],
+                            'material_output': material_nodes['output'],
+                            'target_empty': target_empty,
+                            'camera': camera,
+                            'extra_amount': image_plane.slideshow.extraamount,
+                            'extra_text': image_plane.slideshow.extratext,
+                            'extra_texture': image}
+                        script.extra(data)
                     del script
                 except ImportError:
                     pass
