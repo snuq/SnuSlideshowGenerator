@@ -5,7 +5,7 @@ def extra(data):
     image_scene = data['image_scene']
     camera = data['camera']
     bpy.context.window.scene = image_scene
-    bpy.ops.mesh.primitive_plane_add(size=2, location=(0, 0, -2))
+    bpy.ops.mesh.primitive_plane_add(size=2, location=(0, 0, -3))
     background_plane = bpy.context.active_object
     background_plane.name = 'Textured Dark Background'
     modifier = background_plane.modifiers.new(name='', type='SUBSURF')
@@ -16,7 +16,7 @@ def extra(data):
     background_lamp.data.spot_size = 1.48353
     background_lamp.data.energy = 50
     background_lamp.data.distance = 5
-    background_lamp.data.shadow_buffer_exp = 10
+    background_lamp.data.shadow_buffer_exp = 2
     background_plane.parent = camera
     background_lamp.parent = camera
     background_material = bpy.data.materials.new('Textured Dark Background')

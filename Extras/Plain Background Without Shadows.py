@@ -5,7 +5,7 @@ def extra(data):
     image_scene = data['image_scene']
     camera = data['camera']
     bpy.context.window.scene = image_scene
-    bpy.ops.mesh.primitive_plane_add(size=2, location=(0, 0, -2))
+    bpy.ops.mesh.primitive_plane_add(size=2, location=(0, 0, -3))
     background_plane = bpy.context.active_object
     background_plane.name = 'Light Background'
     modifier = background_plane.modifiers.new(name='', type='SUBSURF')

@@ -27,7 +27,7 @@ def extra(data):
         blurred_size = blurred_plane.dimensions[0]
     else:
         blurred_size = blurred_plane.dimensions[1]
-    scale_factor = (130 / blurred_size)
+    scale_factor = (120 / blurred_size)
     blurred_plane.scale = (blurred_plane.scale * scale_factor)
     location = blurred_plane.location
     blurred_plane.location = (0, 0, (location[2] - 100))

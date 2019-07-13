@@ -19,8 +19,7 @@
 #Known bugs:
 #   aspect ratio isnt detected properly for videos with non-square pixels... not sure how to detect this.
 """
-todo: move generator panel to a 3d view tools panel, this will ensure the user has at least one 3d view open, rethink scene view snapping also
-todo: testing
+todo: testing 2.8
 """
 
 import bpy
@@ -39,7 +38,7 @@ bl_info = {
     "author": "Hudson Barkley (Snu)",
     "version": (0, 8, 2),
     "blender": (2, 80, 0),
-    "location": "Properties Area, Scene Tab, 'Snu Slideshow Generator' Panel.",
+    "location": "3D View Sideobar, 'Slideshow' tab.",
     "wiki_url": "https://github.com/snuq/SnuSlideshowGenerator",
     "category": "Import-Export"
 }
@@ -220,6 +219,8 @@ def create_scene(oldscene, scenename):
     #Set variables that are specific to the slideshow scene
     newscene.render.film_transparent = False
     newscene.render.engine = 'BLENDER_EEVEE'
+    newscene.eevee.shadow_cube_size = '1024'
+    newscene.eevee.taa_render_samples = 8
     newscene.render.resolution_percentage = 100
     newscene.render.image_settings.color_mode = 'RGB'
     return newscene
@@ -973,6 +974,8 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 modifier = apply_mask_to.modifiers.new(name='Transition from '+first_sequence.name, type='MASK')
                 modifier.input_mask_type = 'STRIP'
                 modifier.input_mask_strip = effect
+            elif previous_image_plane.slideshow.transition == "NONE":
+                pass
             else:
                 effect = slideshow_scene.sequence_editor.sequences.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.frame_final_start, frame_end=first_sequence.frame_final_end, type='CROSS', seq1=first_sequence, seq2=second_sequence)
                 effect.frame_still_end = first_sequence.frame_final_end  #apparently needed since the frame_end doesnt get set in the previous function...
@@ -1342,7 +1345,7 @@ class SnuSlideshowImage(bpy.types.PropertyGroup):
     transition: bpy.props.EnumProperty(
         name="Transition Type",
         default="CROSS",
-        items=[("CROSS", "Crossfade", "", 1), ("GAMMA_CROSS", "Gamma Cross", "", 2), ("WIPE", "Wipe", "", 3), ("CUSTOM", "Custom", "", 4)])
+        items=[("CROSS", "Crossfade", "", 1), ("GAMMA_CROSS", "Gamma Cross", "", 2), ("WIPE", "Wipe", "", 3), ("CUSTOM", "Custom", "", 4), ("NONE", "None", "", 5)])
     wipe_type: bpy.props.EnumProperty(
         name="Wipe Type",
         default="SINGLE",
@@ -1435,9 +1438,9 @@ class SnuSlideshowPreviewMode(bpy.types.Operator):
 class SSG_PT_Panel(bpy.types.Panel):
     #This is the main configuration panel for the slideshow generator and generator creator
     bl_label = "Snu Slideshow Generator"
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "scene"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Slideshow"
 
     def draw(self, context):
         layout = self.layout
@@ -1495,131 +1498,6 @@ class SSG_PT_Panel(bpy.types.Panel):
 
             if context.selected_objects:
                 row.operator('slideshow.delete_slide')
-                row = layout.row()
-                row.separator()
-                selected = context.active_object
-                if selected.slideshow.name != "None":
-                    #If a slide image is selected, display configuration options
-                    current_slide = selected.slideshow
-                    box = layout.box()
-                    row = box.row()
-                    row.label(text="Image: "+current_slide.name)
-                    row = box.row()
-                    row.prop(current_slide, 'rotate')
-                    row = box.row()
-                    split = row.split(factor=.5)
-                    subsplit = split.split(align=True)
-                    subsplit.label(text=""+str(current_slide.index + 1))
-                    subsplit.operator("slideshow.move_slide", text="", icon="REW").move = "beginning"
-                    subsplit.operator("slideshow.move_slide", text="", icon="PLAY_REVERSE").move = "backward"
-                    subsplit.operator("slideshow.move_slide", text="", icon="PLAY").move = "forward"
-                    subsplit.operator("slideshow.move_slide", text="", icon="FF").move = "end"
-                    split = split.split()
-                    split.prop(current_slide, "lockposition")
-                    innerbox = box.box()
-                    row = innerbox.row()
-                    if current_slide.videofile:
-                        row.prop(current_slide, "videolength")
-                    else:
-                        row.prop(current_slide, "length")
-                        row = innerbox.row()
-                        row.operator('slideshow.apply_slide_length', text="Apply To Selected").mode = 'Selected'
-                        row.operator('slideshow.apply_slide_length').mode = 'None'
-                        row.prop(current_slide, "locklength")
-
-                    if not current_slide.videofile:
-                        innerbox = box.box()
-                        row = innerbox.row()
-                        row.label(text="Transform: "+current_slide.transform)
-                        row = innerbox.row()
-                        row.menu('SSG_MT_transforms_menu', text="Change Transform")
-                        row = innerbox.row()
-                        row.operator('slideshow.apply_transform', text="Apply To Selected").transform = 'Selected'
-                        row.operator('slideshow.apply_transform').transform = 'None'
-                        row.prop(current_slide, "locktransform")
-                        innerbox = box.box()
-                        row = innerbox.row()
-                        row.label(text="Extra: "+current_slide.extra)
-                        row = innerbox.row()
-                        row.menu('SSG_MT_extra_menu', text="Change Extra")
-                        row = innerbox.row()
-                        row.operator('slideshow.apply_extra', text="Apply To Selected").extra = 'Selected'
-                        row.operator('slideshow.apply_extra').extra = 'None'
-                        row.prop(current_slide, "lockextra")
-                        row = innerbox.row()
-                        row.separator()
-                        row = innerbox.row()
-                        row.prop(current_slide, "extratext", text='Extra Text')
-                        row = innerbox.split(factor=0.8)
-                        split = row.split(factor=.9, align=True)
-                        split.prop(current_slide, "extratexture", text='Extra Texture')
-                        split.operator('slideshow.open_extra_texture', text="", icon='FILEBROWSER').target = 'slide'
-                        split = row.split(factor=1, align=True)
-                        split.operator('slideshow.add_extra_texture').texture = current_slide.extratexture
-                        row = innerbox.row()
-                        row.menu('SSG_MT_extra_texture_menu', text="Apply Extra Texture Preset")
-                        row = innerbox.row()
-                        row.prop(current_slide, "extraamount", text='Extra Amount')
-
-                    else:
-                        innerbox = box.box()
-                        row = innerbox.row()
-                        row.prop(current_slide, "videooffset", text='Video Offset')
-                        row = innerbox.row()
-                        row.prop(current_slide, "videoaudio", text='Import Audio From Video File')
-                        row = innerbox.row()
-                        row.prop(current_slide, "videobackground", text='Add Blurred Background If Needed')
-                    innerbox = box.box()
-                    row = innerbox.row()
-                    row.label(text="Transition To Next Slide:")
-                    row = innerbox.row()
-                    row.prop(current_slide, "transition", text="")
-                    row = innerbox.row()
-                    row.operator('slideshow.apply_transition', text="Apply To Selected").transition = 'Selected'
-                    row.operator('slideshow.apply_transition').transition = 'None'
-                    row.prop(current_slide, "locktransition")
-                    transition = current_slide.transition
-                    if transition == "WIPE":
-                        row = innerbox.row()
-                        row.prop(current_slide, "wipe_type", text='Type')
-                        row.prop(current_slide, 'wipe_soft', toggle=True)
-                        row = innerbox.row()
-                        row.prop(current_slide, "wipe_direction", expand=True)
-                        row = innerbox.row()
-                        row.prop(current_slide, 'wipe_angle', expand=True)
-                    if transition == "CUSTOM":
-                        row = innerbox.row()
-                        row.prop(current_slide, 'custom_transition_file', text='Transition Video')
-                    row = layout.row()
-                    row.separator()
-                    row = layout.box()
-                    row.label(text="Drag an image up or down to rearrange it in the timeline.")
-
-                elif 'View' in selected.name:
-                    #The view area rectangle is probably selected
-                    row = layout.box()
-                    row.label(text="The rectangle is the area the camera will see.")
-                    row.label(text="It can be scaled down to crop the image,")
-                    row.label(text="or rotated to rotate the camera,")
-                    row.label(text="or moved to focus on a specific area.")
-
-                elif 'Target' in selected.name:
-                    #The zoom to target is probably selected
-                    row = layout.box()
-                    row.label(text="The cross is the target for transforms like zoom in.")
-                    row.label(text="It can be moved around the image.")
-
-                else:
-                    #Something else is selected
-                    row = layout.box()
-                    row.label(text="Select An Image To Customize It")
-
-            else:
-                #Nothing is selected
-                row = layout.row()
-                row.separator()
-                row = layout.box()
-                row.label(text="Select An Image To Customize It")
 
         else:
             #Panel is in create generator mode
@@ -1668,6 +1546,140 @@ class SSG_PT_Panel(bpy.types.Panel):
             split.operator('slideshow.add_extra_texture').texture = context.scene.snu_slideshow_generator.extra_texture
             row = box.row()
             row.menu('SSG_MT_extra_texture_menu', text="Extra Texture Presets")
+
+
+class SSG_PT_SlidePanel(bpy.types.Panel):
+    #This panel contains settings for the currently selected slideshow image
+    bl_label = "Slideshow Image"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Slideshow"
+
+    @classmethod
+    def poll(cls, context):
+        current_scene = context.scene
+        if is_generator_scene(current_scene):
+            return True
+        return False
+
+    def draw(self, context):
+        layout = self.layout
+
+        selected = context.active_object
+        if selected.slideshow.name != "None":
+            #If a slide image is selected, display configuration options
+            current_slide = selected.slideshow
+            row = layout.row()
+            row.label(text="Image: "+current_slide.name)
+            row = layout.row()
+            row.prop(current_slide, 'rotate')
+            row = layout.row()
+            split = row.split(factor=.5)
+            subsplit = split.split(align=True)
+            subsplit.label(text=""+str(current_slide.index + 1))
+            subsplit.operator("slideshow.move_slide", text="", icon="REW").move = "beginning"
+            subsplit.operator("slideshow.move_slide", text="", icon="PLAY_REVERSE").move = "backward"
+            subsplit.operator("slideshow.move_slide", text="", icon="PLAY").move = "forward"
+            subsplit.operator("slideshow.move_slide", text="", icon="FF").move = "end"
+            split = split.split()
+            split.prop(current_slide, "lockposition")
+            innerbox = layout.box()
+            row = innerbox.row()
+            if current_slide.videofile:
+                row.prop(current_slide, "videolength")
+            else:
+                row.prop(current_slide, "length")
+                row = innerbox.row()
+                row.operator('slideshow.apply_slide_length', text="Apply To Selected").mode = 'Selected'
+                row.operator('slideshow.apply_slide_length').mode = 'None'
+                row.prop(current_slide, "locklength")
+
+            if not current_slide.videofile:
+                innerbox = layout.box()
+                row = innerbox.row()
+                row.label(text="Transform: "+current_slide.transform)
+                row = innerbox.row()
+                row.menu('SSG_MT_transforms_menu', text="Change Transform")
+                row = innerbox.row()
+                row.operator('slideshow.apply_transform', text="Apply To Selected").transform = 'Selected'
+                row.operator('slideshow.apply_transform').transform = 'None'
+                row.prop(current_slide, "locktransform")
+                innerbox = layout.box()
+                row = innerbox.row()
+                row.label(text="Extra: "+current_slide.extra)
+                row = innerbox.row()
+                row.menu('SSG_MT_extra_menu', text="Change Extra")
+                row = innerbox.row()
+                row.operator('slideshow.apply_extra', text="Apply To Selected").extra = 'Selected'
+                row.operator('slideshow.apply_extra').extra = 'None'
+                row.prop(current_slide, "lockextra")
+                row = innerbox.row()
+                row.separator()
+                row = innerbox.row()
+                row.prop(current_slide, "extratext", text='Extra Text')
+                row = innerbox.split(factor=0.8)
+                split = row.split(factor=.9, align=True)
+                split.prop(current_slide, "extratexture", text='Extra Texture')
+                split.operator('slideshow.open_extra_texture', text="", icon='FILEBROWSER').target = 'slide'
+                split = row.split(factor=1, align=True)
+                split.operator('slideshow.add_extra_texture').texture = current_slide.extratexture
+                row = innerbox.row()
+                row.menu('SSG_MT_extra_texture_menu', text="Apply Extra Texture Preset")
+                row = innerbox.row()
+                row.prop(current_slide, "extraamount", text='Extra Amount')
+
+            else:
+                innerbox = layout.box()
+                row = innerbox.row()
+                row.prop(current_slide, "videooffset", text='Video Offset')
+                row = innerbox.row()
+                row.prop(current_slide, "videoaudio", text='Import Audio From Video File')
+                row = innerbox.row()
+                row.prop(current_slide, "videobackground", text='Add Blurred Background If Needed')
+            innerbox = layout.box()
+            row = innerbox.row()
+            row.label(text="Transition To Next Slide:")
+            row = innerbox.row()
+            row.prop(current_slide, "transition", text="")
+            row = innerbox.row()
+            row.operator('slideshow.apply_transition', text="Apply To Selected").transition = 'Selected'
+            row.operator('slideshow.apply_transition').transition = 'None'
+            row.prop(current_slide, "locktransition")
+            transition = current_slide.transition
+            if transition == "WIPE":
+                row = innerbox.row()
+                row.prop(current_slide, "wipe_type", text='Type')
+                row.prop(current_slide, 'wipe_soft', toggle=True)
+                row = innerbox.row()
+                row.prop(current_slide, "wipe_direction", expand=True)
+                row = innerbox.row()
+                row.prop(current_slide, 'wipe_angle', expand=True)
+            if transition == "CUSTOM":
+                row = innerbox.row()
+                row.prop(current_slide, 'custom_transition_file', text='Transition Video')
+            row = layout.row()
+            row.separator()
+            row = layout.box()
+            row.label(text="Drag an image up or down to rearrange it in the timeline.")
+
+        elif 'View' in selected.name:
+            #The view area rectangle is probably selected
+            row = layout.box()
+            row.label(text="The rectangle is the area the camera will see.")
+            row.label(text="It can be scaled down to crop the image,")
+            row.label(text="or rotated to rotate the camera,")
+            row.label(text="or moved to focus on a specific area.")
+
+        elif 'Target' in selected.name:
+            #The zoom to target is probably selected
+            row = layout.box()
+            row.label(text="The cross is the target for transforms like zoom in.")
+            row.label(text="It can be moved around the image.")
+
+        else:
+            #Something else is selected
+            row = layout.box()
+            row.label(text="Select An Image To Customize It")
 
 
 class SnuSlideshowMoveSlide(bpy.types.Operator):
@@ -2516,7 +2528,7 @@ class SnuSlideshowGeneratorSettings(bpy.types.PropertyGroup):
         description="List of transforms to not use in randomize operations")
     hidden_extras: bpy.props.StringProperty(
         name="Hidden Extras",
-        default="Text Normal Bottom;Text Normal Top;Video Background;Video Foreground;Compositor Glare;Overlay Curves Left;Overlay Curves Right",
+        default="Text Normal Bottom;Text Normal Top;Video Background;Video Background With Shadows;Video Foreground;Compositor Glare;Overlay Curves Left;Overlay Curves Right",
         description="List of extras to not use in randomize operations")
     image_directory: bpy.props.StringProperty(
         name="Image Directory",
@@ -2562,7 +2574,7 @@ class SnuSlideshowGeneratorSettings(bpy.types.PropertyGroup):
 
 
 classes = [SnuSlideshowExtraTexturePreset, SnuSlideshowImage, SSG_PT_VSEPanel, SnuSlideshowGotoGenerator,
-           SnuSlideshowPreviewMode, SSG_PT_Panel, SnuSlideshowMoveSlide, SnuSlideshowOpenExtraTexture,
+           SnuSlideshowPreviewMode, SSG_PT_Panel, SSG_PT_SlidePanel, SnuSlideshowMoveSlide, SnuSlideshowOpenExtraTexture,
            SnuSlideshowOpenAudio, SnuSlideshowAddSlide, SnuSlideshowExtraMenu, SnuSlideshowHideAllExtras,
            SnuSlideshowHideExtra, SnuSlideshowChangeExtra, SnuSlideshowTransformsMenu, SnuSlideshowHideAllTransforms,
            SnuSlideshowHideTransform, SnuSlideshowChangeTransform, SnuSlideshowApplyExtra, SnuSlideshowApplyTransform,
