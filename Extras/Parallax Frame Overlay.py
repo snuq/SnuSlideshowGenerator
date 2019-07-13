@@ -18,7 +18,7 @@ def extra(data):
         width = aspect_ratio
         height = 1
 
-    position = 0.1 + (extra_amount / 2.5)
+    position = 0.5 + (extra_amount / 2.5)
     bpy.ops.mesh.primitive_circle_add(vertices=4, radius=0.46, location=(0, 0, position), rotation=(0, 0, pi/4), enter_editmode=True)
     bpy.ops.transform.resize(value=(width, height, 1))
     bpy.ops.mesh.extrude_region()

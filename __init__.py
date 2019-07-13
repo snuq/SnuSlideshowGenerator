@@ -20,9 +20,7 @@
 #   aspect ratio isnt detected properly for videos with non-square pixels... not sure how to detect this.
 """
 todo: move generator panel to a 3d view tools panel, this will ensure the user has at least one 3d view open, rethink scene view snapping also
-todo: update extras:
-    Text Normal
-    Video
+todo: testing
 """
 
 import bpy
@@ -594,10 +592,12 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         transform_action = bpy.data.actions.new(transform['name'])
         transform_empty.animation_data.action = transform_action
         aspect = aspect_ratio(image_scene)
+        multiplier = 1.09
+        multiplier = 1.375
         if aspect > 1:
-            zoffset = aspect * 1.09
+            zoffset = aspect * multiplier
         else:
-            zoffset = 1.09
+            zoffset = multiplier
         transform_empty.location = (0, 0, zoffset)
         if 'zLoc' in transform.keys():
             locations = len(transform['zLoc'])
