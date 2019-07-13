@@ -1,18 +1,20 @@
 import bpy
 
 
-def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_text, extra_texture):
-    bpy.context.screen.scene = image_scene
+def extra(data):
+    image_scene = data['image_scene']
+    bpy.context.window.scene = image_scene
+    material_mix = data['material_mix']
+    material_mix.inputs[0].default_value = 1
+    material_shaded = data['material_shaded']
+    material_shaded.inputs['Roughness'].default_value = 0.3
 
-    bpy.ops.object.lamp_add(type='SUN', location=(0, 0, 0))
-    lamp = bpy.context.scene.objects.active
-    lamp.data.use_diffuse = False
-
-    material = image_plane.material_slots[0].material
-    material.use_shadeless = False
-    material.emit = 1
-    material.specular_intensity = 1
-    material.specular_hardness = 201 - (extra_amount * 200)
+    bpy.ops.object.light_add(type='SUN', location=(0, 0, 0))
+    lamp = bpy.context.active_object
+    bpy.ops.object.light_add(type='SUN', location=(0, 0, 0))
+    world_lamp = bpy.context.active_object
+    world_lamp.data.specular_factor = 0
+    world_lamp.data.energy = 3
 
     lamp.animation_data_create()
     lamp_action = bpy.data.actions.new('Sun Lamp Glint')

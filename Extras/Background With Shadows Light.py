@@ -1,40 +1,46 @@
 import bpy
 
 
-def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_text, extra_texture):
-    bpy.context.screen.scene = image_scene
-    bpy.ops.mesh.primitive_plane_add(radius=2, location=(0, 0, -2))
-    background_plane = bpy.context.scene.objects.active
+def extra(data):
+    image_scene = data['image_scene']
+    camera = data['camera']
+    bpy.context.window.scene = image_scene
+    bpy.ops.mesh.primitive_plane_add(size=2, location=(0, 0, -2))
+    background_plane = bpy.context.active_object
     background_plane.name = 'Textured Light Background'
     modifier = background_plane.modifiers.new(name='', type='SUBSURF')
     modifier.render_levels = 1
     modifier.subdivision_type = 'SIMPLE'
-    background_material = bpy.data.materials.new('Textured Light Background')
-    background_plane.data.materials.append(background_material)
-    background_texture = bpy.data.textures.new('Textured Light Background', type='CLOUDS')
-    background_texture_slot = background_material.texture_slots.add()
-    background_texture_slot.texture = background_texture
-    background_texture.noise_basis = 'VORONOI_F2_F1'
-    background_texture.noise_scale = 0.01
-    background_texture_slot.texture_coords = 'ORCO'
-    background_texture_slot.use_map_color_diffuse = False
-    background_texture_slot.use_map_normal = True
-    background_texture_slot.normal_factor = (extra_amount / 5)
-    background_texture_slot.bump_method = 'BUMP_BEST_QUALITY'
-    background_material.diffuse_color = (0.8, 0.8, 0.8)
-    background_material.diffuse_intensity = 1
-    background_material.specular_intensity = 0
-    background_material.use_transparent_shadows = True
-    background_material.use_cast_buffer_shadows = False
-    bpy.ops.object.lamp_add(type='SPOT', location=(0, 0, -0.2))
-    background_lamp = bpy.context.scene.objects.active
-    background_lamp.data.shadow_buffer_type = 'REGULAR'
-    background_lamp.data.shadow_filter_type = 'GAUSS'
-    background_lamp.data.shadow_buffer_soft = 100
-    background_lamp.data.shadow_buffer_samples = 16
-    background_lamp.data.shadow_buffer_size = 1024
-    background_lamp.data.shadow_buffer_clip_end = 5
+    bpy.ops.object.light_add(type='SPOT', location=(0, 0, -0.7))
+    background_lamp = bpy.context.active_object
     background_lamp.data.spot_size = 1.48353
+    background_lamp.data.energy = 50
     background_lamp.data.distance = 5
+    background_lamp.data.shadow_buffer_exp = 30
     background_plane.parent = camera
     background_lamp.parent = camera
+    background_material = bpy.data.materials.new('Textured Light Background')
+    background_plane.data.materials.append(background_material)
+    background_material.use_nodes = True
+    node_tree = background_material.node_tree
+    nodes = node_tree.nodes
+    for node in nodes:
+        if node.type == 'BSDF_PRINCIPLED':
+            background_shaded = node
+    background_tex_one = nodes.new("ShaderNodeTexVoronoi")
+    background_tex_one.inputs["Scale"].default_value = 150
+    background_tex_two = nodes.new("ShaderNodeTexNoise")
+    background_tex_two.inputs["Scale"].default_value = 35
+    background_tex_two.inputs["Detail"].default_value = 8
+    background_tex_two.inputs["Distortion"].default_value = 0.2
+    background_tex_mix = nodes.new("ShaderNodeMixRGB")
+    background_tex_mix.inputs["Fac"].default_value = 0.8
+    background_bump = nodes.new("ShaderNodeBump")
+    background_bump.invert = True
+    background_bump.inputs["Strength"].default_value = 0.5
+    node_tree.links.new(background_tex_one.outputs["Fac"], background_tex_mix.inputs[1])
+    node_tree.links.new(background_tex_two.outputs["Fac"], background_tex_mix.inputs[2])
+    node_tree.links.new(background_tex_mix.outputs[0], background_bump.inputs["Height"])
+    node_tree.links.new(background_bump.outputs["Normal"], background_shaded.inputs["Normal"])
+    background_shaded.inputs["Roughness"].default_value = 0.4
+    background_shaded.inputs["Base Color"].default_value = (0.8, 0.8, 0.8, 1)

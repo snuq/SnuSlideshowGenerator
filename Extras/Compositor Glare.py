@@ -1,8 +1,10 @@
 import bpy
 
 
-def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_text, extra_texture):
-    bpy.context.screen.scene = image_scene
+def extra(data):
+    image_scene = data['image_scene']
+    extra_amount = data['extra_amount']
+    bpy.context.window.scene = image_scene
     image_scene.use_nodes = True
     nodes = image_scene.node_tree.nodes
     for node in nodes:

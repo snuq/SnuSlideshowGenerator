@@ -18,10 +18,12 @@
 
 #Known bugs:
 #   aspect ratio isnt detected properly for videos with non-square pixels... not sure how to detect this.
-
-#todo: move generator panel to a 3d view tools panel, this will ensure the user has at least one 3d view open, rethink scene view snapping also
-#todo: update all extras
-
+"""
+todo: move generator panel to a 3d view tools panel, this will ensure the user has at least one 3d view open, rethink scene view snapping also
+todo: update extras:
+    Text Normal
+    Video
+"""
 
 import bpy
 import random
@@ -218,6 +220,7 @@ def create_scene(oldscene, scenename):
     newscene.view_settings.view_transform = oldscene.view_settings.view_transform  #really not sure why this is needed, but it is...?
 
     #Set variables that are specific to the slideshow scene
+    newscene.render.film_transparent = False
     newscene.render.engine = 'BLENDER_EEVEE'
     newscene.render.resolution_percentage = 100
     newscene.render.image_settings.color_mode = 'RGB'
@@ -569,6 +572,12 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         #set scene
         bpy.context.window.scene = image_scene
 
+        #set up scene world
+        world = bpy.data.worlds.new(image_scene.name)
+        image_scene.world = world
+        world.use_nodes = False
+        world.color = (0, 0, 0)
+
         #create transforms
         bpy.ops.object.select_all(action='DESELECT')
         image_scene.cursor.location = (0.0, 0.0, 0.0)
@@ -662,7 +671,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         camera.parent = transform_empty
         image_scene.camera = camera
         camera.data.dof.focus_object = image_plane
-        camera.data.dof.use_dof = True
+        camera.data.dof.use_dof = False
 
         #add camera_scale empty that will scale the transform and camera
         bpy.ops.object.empty_add()
@@ -2507,7 +2516,7 @@ class SnuSlideshowGeneratorSettings(bpy.types.PropertyGroup):
         description="List of transforms to not use in randomize operations")
     hidden_extras: bpy.props.StringProperty(
         name="Hidden Extras",
-        default="Text Normal Bottom;Text Normal Top;Parallax Frame Overlay Landscape;Parallax Frame Overlay Portrait;Video Background;Video Foreground;Compositor Glare;Overlay Curves Left;Overlay Curves Right",
+        default="Text Normal Bottom;Text Normal Top;Video Background;Video Foreground;Compositor Glare;Overlay Curves Left;Overlay Curves Right",
         description="List of extras to not use in randomize operations")
     image_directory: bpy.props.StringProperty(
         name="Image Directory",

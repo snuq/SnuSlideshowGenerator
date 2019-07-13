@@ -1,20 +1,25 @@
 import bpy
 
 
-def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_text, extra_texture):
-    bpy.context.screen.scene = image_scene
+def extra(data):
+    camera = data['camera']
+    extra_amount = data['extra_amount']
+    image_scene = data['image_scene']
+    bpy.context.window.scene = image_scene
 
     #set up material
     circles_material = bpy.data.materials.new('Circles')
-    circles_material.diffuse_color = (0.411, 0.411, 0.411)
-    circles_material.diffuse_intensity = 1
-    circles_material.specular_intensity = 1
-    circles_material.specular_hardness = 10
-    circles_material.use_transparency = True
-    circles_material.specular_alpha = 0.28433
-    circles_material.raytrace_transparency.fresnel = 2.2
-    circles_material.use_cast_buffer_shadows = False
-    circles_material.use_shadows = False
+    circles_material.blend_method = 'BLEND'
+    circles_material.use_nodes = True
+    node_tree = circles_material.node_tree
+    nodes = node_tree.nodes
+    for node in nodes:
+        if node.type == 'BSDF_PRINCIPLED':
+            shader = node
+            shader.inputs["Base Color"].default_value = (0.411, 0.411, 0.411, 1)
+            shader.inputs["Emission"].default_value = (0.411, 0.411, 0.411, 1)
+            shader.inputs["Roughness"].default_value = 0.2
+            shader.inputs["Alpha"].default_value = 0.333
 
     #set up circle 1
     bpy.ops.mesh.primitive_circle_add(vertices=128, radius=1, enter_editmode=True)
@@ -22,7 +27,7 @@ def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_te
     bpy.ops.transform.resize(value=(4, 4, 4))
     bpy.ops.mesh.flip_normals()
     bpy.ops.object.mode_set(mode='OBJECT')
-    circle1 = bpy.context.scene.objects.active
+    circle1 = bpy.context.active_object
     circle1.name = 'Circle 1'
     circle1.data.materials.append(circles_material)
     circle1.location = (0, 0, -0.73)
@@ -49,7 +54,7 @@ def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_te
     bpy.ops.transform.resize(value=(4, 4, 4))
     bpy.ops.mesh.flip_normals()
     bpy.ops.object.mode_set(mode='OBJECT')
-    circle2 = bpy.context.scene.objects.active
+    circle2 = bpy.context.active_object
     circle2.name = 'Circle 2'
     circle2.data.materials.append(circles_material)
     circle2.location = (0, 0, -0.93)
@@ -76,7 +81,7 @@ def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_te
     bpy.ops.transform.resize(value=(4, 4, 4))
     bpy.ops.mesh.flip_normals()
     bpy.ops.object.mode_set(mode='OBJECT')
-    circle3 = bpy.context.scene.objects.active
+    circle3 = bpy.context.active_object
     circle3.name = 'Circle 3'
     circle3.data.materials.append(circles_material)
     circle3.location = (0, 0, -1.1)
@@ -98,10 +103,10 @@ def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_te
     circle3.parent = camera
 
     #set up lamp
-    bpy.ops.object.lamp_add(type='SPOT', location=(-0.33888, 0, 0.32165), rotation=(0.0, -0.201527, 0))
-    lamp = bpy.context.scene.objects.active
+    bpy.ops.object.light_add(type='SPOT', location=(-0.33888, 0, 0.32165), rotation=(0.0, -0.201527, 0))
+    lamp = bpy.context.active_object
     lamp.name = 'Circles Lamp'
-    lamp.data.shadow_method = 'NOSHADOW'
+    lamp.data.use_shadow = False
     lamp.data.spot_blend = 1
-    lamp.data.energy = 2
+    lamp.data.energy = 200
     lamp.parent = camera
