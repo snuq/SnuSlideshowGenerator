@@ -19,10 +19,6 @@
 #Known bugs:
 #   aspect ratio isnt detected properly for videos with non-square pixels... not sure how to detect this.
 
-#todo: scene update handler will be removed in blender 2.8... think about using a modal operator instead
-#      how to enable/disable? maybe checkbox in 3d view header?
-#      can it be auto-run on scene switch/file load?
-#      add graphic overlay to 3d view to make it obvious this is running
 
 import bpy
 import random
