@@ -1171,7 +1171,8 @@ def update_aspect(slide, scene, aspect):
     try:
         view_empty = scene.objects[slide.slideshow.view]
         scale_basis = view_empty.scale[1]
-        view_empty.scale = aspect * scale_basis, scale_basis, .001
+        new_scale = aspect * scale_basis, scale_basis, .001
+        view_empty.scale = new_scale
     except:
         pass
 
@@ -1191,11 +1192,15 @@ def update_order(mode='none', current_scene=None):
         #Sort slides by their current location only
         changed = False
         oldorder = []
-        aspect = aspect_ratio(current_scene)
+        aspect = round(aspect_ratio(current_scene), 4)
+        old_aspect = round(current_scene.snu_slideshow_generator.aspect_ratio, 4)
         for slide in slides:
-            update_aspect(slide, current_scene, aspect)
+            #check if aspect has changed, update slides if needed
+            if aspect != old_aspect:
+                update_aspect(slide, current_scene, aspect)
             loc = -slide.location[1]
             oldorder.append([loc, slide])
+        current_scene.snu_slideshow_generator.aspect_ratio = aspect
         neworder = sorted(oldorder, key=lambda x: x[0])
         for i, slide in enumerate(neworder):
             if slide[0] != i:
@@ -1206,7 +1211,7 @@ def update_order(mode='none', current_scene=None):
     else:
         #Resort the slides in a specific way
 
-        #Solt the slides by index to start with
+        #Sort the slides by index to start with
         slides.sort(key=lambda x: x.slideshow.index)
 
         #Make a list of only the slides that are not locked
@@ -2571,6 +2576,8 @@ class SnuSlideshowGeneratorSettings(bpy.types.PropertyGroup):
     generator_workspace: bpy.props.StringProperty(
         name="Generator Scene Workspace",
         default='')
+    aspect_ratio: bpy.props.FloatProperty(
+        default=0)
 
 
 classes = [SnuSlideshowExtraTexturePreset, SnuSlideshowImage, SSG_PT_VSEPanel, SnuSlideshowGotoGenerator,
