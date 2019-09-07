@@ -996,19 +996,19 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
 
 def extras_path():
     #This function will return the path to the Extras files
-    for path in bpy.utils.script_paths():
-        if os.path.exists(path+"\\addons\\slideshow\\Extras"):
-            return path+"\\addons\\slideshow\\Extras\\*"
-        if os.path.exists(path+"\\addons\\Extras"):
-            return path+"\\addons\\Extras\\*"
-    return os.path.split(bpy.data.filepath)[0]+"\\Extras\\*"
+    script_file = os.path.realpath(__file__)
+    directory = os.path.dirname(script_file)
+    extras_directory = directory+os.path.sep+'Extras'+os.path.sep
+    if os.path.exists(extras_directory):
+        return extras_directory
+    return os.path.split(bpy.data.filepath)[0]+os.path.sep+"Extras"+os.path.sep
 
 
 def list_extras():
     #This function will return a list of Extras found in the extras path location
     extras = []
     extraspath = extras_path()
-    extrafiles = glob.glob(extraspath)
+    extrafiles = glob.glob(extraspath+'*')
     for file in extrafiles:
         if os.path.splitext(file)[1] == '.py':
             extras.append(os.path.splitext(os.path.split(file)[1])[0])
@@ -1019,7 +1019,7 @@ def get_extra(filename):
     #This function will return the full path to an extra from the filename
     extra = None
     extraspath = extras_path()
-    extrafiles = glob.glob(extraspath)
+    extrafiles = glob.glob(extraspath+'*')
     for file in extrafiles:
         if os.path.splitext(os.path.split(file)[1])[0] == filename:
             extra = file
