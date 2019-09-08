@@ -17,28 +17,27 @@ Or support me by hiring Creative Life Productions if you have a need for the ser
 
 
 ## Installation
-* Download the release or master zip file to a location you can find easily.  
-* Open Blender, and from the 'File' menu, select 'User Preferences'.
-* In this new window, click on the "Add-ons" tab at the top.
-* Click the 'Install Add-on from File...' button at the bottom of this window.
+* Use Github's green "Clone or Download" link, and choose to download the .zip. Save the file to a location you can find easily.
+* Open Blender, and from the 'Edit' menu, select 'Preferences'.
+* In this new window, click on the "Add-ons" tab at the left.
+* Click the 'Install...' button at the top-right of this window.
 * Browse to and select the zip file you downloaded, click the 'Install Add-on from File' button.
 * You should now see the addon displayed in the preferences window, click the checkbox next to the name to enable it.
-* Click the 'Save User Settings' button to ensure this addon is loaded next time Blender starts.
-* Once installed, the interface can be found in the Properties area, under the Scene tab, in the panel called 'Snu Slideshow Generator'
+* Once installed, the interface can be found in the 3d View area sidebar, under the 'Slideshow' tab.
 
 
 ## Creating A Slideshow Generator
 The first step is to create the slideshow generator scene.  This is a special scene that allows you to organize the images, change transitions and add effects to the slides.  
 * Place all the images and videos you wish to use in a slideshow in a folder.  
 * Select that folder using the directory browser button next to 'Image Directory' in the slideshow generator panel.  
-   Note, this is not necessary, and images can be added one by one at any time.  
+   Images can be added after creating the scene as well, but adding an entire directory in this way is easier.  
 
 * Set the slide length to an appropriate length to display each slide.  
    Use the estimated length, but be aware that videos may cause this length to be inaccurate.  
-   Note that slide lengths can be easily set later as well.  
+   Slide lengths can be easily set later as well.  
 
 * Slide movement, or 'Transforms' will be randomized per slide.  Undesired transforms can be disabled by selecting them in the 'Toggle Transforms' menu.  
-   Note that these can be randomized or changed later as well.  
+   Transforms can be randomized or changed later as well.  
 
 * Special effects, or 'Extras' will be randomized per slide.  Undesired effects can be disabled by selecting them in the 'Toggle Extras' menu.  
    As with transforms, these can be randomized or changed later.  
@@ -46,7 +45,7 @@ The first step is to create the slideshow generator scene.  This is a special sc
 * Extra Textures are an image or video that can be used as an effect in a slide.  These can used by Extras like the 'Video Foreground' and 'Video Background'.   
    Select a texture file by clicking the browse button next to the 'Extra Texture' field.  
    Click the '+' button to add the texture to the 'Extra Texture Presets' menu.  
-   To remove a texture, open the 'Extra Texture Presets' menu, and click the 'X' button next to the desired texture.  
+   To remove a texture, open the 'Extra Texture Presets' menu, and click the 'X' button next to the undesired texture.  
 
 * Once everything is set, click the 'Create Slideshow Generator' button.  
    Note that creating a slideshow generator with a lot of images may take some time and appear to freeze blender while it loads in the images.  
@@ -54,7 +53,7 @@ The first step is to create the slideshow generator scene.  This is a special sc
 
 
 ## Configuring The Slideshow
-Once the slideshow generator is created, the slides will be placed in a new scene and presented in the 3d viewport.  Make sure the 3d view is set to 'Textured' or 'Material' display mode to be able to see the slide previews.  
+Once the slideshow generator is created, the slides will be placed in a new scene and presented in the 3d viewport.  Make sure the 3d view is set to 'Look Dev' or 'Rendered' display mode to be able to see the slide previews.  
 
 ### The Slideshow Generator panel should now be in Create Slideshow mode.
 * The 'Create Slideshow' button will finalize the slideshow that is set up.  
@@ -69,15 +68,15 @@ Once the slideshow generator is created, the slides will be placed in a new scen
 * The sorting order of the slides can be changed.  Clicking one of the sort option buttons will immediately reorder the slides. 
 * Transforms or Extras can be randomized.  Clicking a randomize button will immediately assign new transforms or extras to all slides. 
 * Additional images or videos can be added to the slideshow with the 'Add New Slide(s)' button, it/they will be placed at the end of the list.  
-   Multiple images or videos can be selected in the file browser.  
    Hold Shift to select multiple single files.  
-   Hold Shift and Ctrl to select all files between two.  
+   Hold Shift and Ctrl to select all files between two clicks.  
    Press 'a' to de/select all files in the directory.  
-
+* Unwanted slides can be deleted by selecting any component of them, and pressing the delete slides button.  
+   Do not manually delete slides from the 3d view, as this may confuse the generator.  
 
 ### In the 3d view:
-* Right-click-drag an object to move it.  
-* Right click to select an object.  When selected:  
+* Click-drag an object to move it.  
+* Click to select an object.  When selected:  
    Press 'g' to move the object.  Not all objects can be moved in all ways.  
    Press 'r' to rotate the object.  Not all objects can be rotated.  
    Press 's' to scale the object.  Not all objects can be scaled.  
@@ -94,7 +93,7 @@ Once the slideshow generator is created, the slides will be placed in a new scen
 
 * Selecting an image or video:  
    Grab the image to rearrange it in the sequence of images.  
-   The slideshow generator panel will change to give settings for that specific slide.  
+   A 'Slideshow Image' panel will be visible in the sidebar, this will give settings for the selected slide.  
    * Rotation allows the rotation of the image in 90 degree increments, use this if the image is rotated wrong in the 3d view.  
    * A group of buttons for moving the slide are available:  
       "|<<" - Will move the slide to the beginning of the slideshow.  
@@ -107,29 +106,29 @@ Once the slideshow generator is created, the slides will be placed in a new scen
       For images, this value will be in seconds, for a video, it will be in frames.  
 
    * Use the 'Apply To Selected' and 'Apply To All' buttons to apply the current length to other slides.  
-      Note that these buttons are not available for video slides.  
+      These buttons are not available for video slides.  
 
    * Lock Length will prevent this slide from being affected by the apply slide length buttons.  
-      Note that this is not available for video slides, as they will always be 'locked'.  
+      This is not available for video slides, as they will always be 'locked'.  
 
-   * Video Offset is the number of frames that will be removed from the begging of a video clip.  
-      Note that this option is only visible for video slides.  
-   
+   * Video Offset is the number of frames that will be removed from the beginning of a video clip.  
+      This option is only visible for video slides.  
+
    * Import Audio From Video File will cause the audio track from the selected video slide to be added to the final slideshow.  Unchecking this will result in a silent slide.  
-      Note that this is only visible for video slides.
-      
+      This is only visible for video slides.
+
    * Add Blurred Background If Needed will automatically add a scaled blurred copy of a video slide to fill out empty space around it if the video is a different size than the final slideshow.  
-      Note that this option is only visible for video slides.  
+      This option is only visible for video slides.  
 
    * Currently selected transform will be shown.  
-      Note that transforms and all related options are not available for video slides.  
+      Transforms and all related options are not available for video slides.  
       * Select a new transform for the current slide by using the 'Change Transform' menu.  
       * Transforms not to be used for randomizations can be deselected in this menu, click the checkbox next to the transform to toggle it.  
       * Use the 'Apply To Selected' and 'Apply To All' buttons to apply the current transform to other slides.  
       * Lock Transform will prevent this slide from being affected by apply transform or randomize buttons.  
 
    * The currently selected extra will be shown.  
-      Note that extras and all related options are not available for video slides.  
+      Extras and all related options are not available for video slides.  
       A number of default extras are included, and more can be added with some python programming.  
       * The 'Text Normal Top' and 'Text Normal Bottom' utilize the 'Extra Text' variable to add a title to the slide.  
       * The 'Video Foreground' and 'Video Background' utilize the 'Extra Texture' variable to add an overlay or background image or video.  
@@ -140,7 +139,7 @@ Once the slideshow generator is created, the slides will be placed in a new scen
          * Compositor Glare: It will determine the threshold for the glare (how bright something is before it glares).  
          * Image Glint: It will determine the amount of glint.  
          * Overlay Curves Left/Right: It will determine how much the curves overlap the image.  
-         * Parallax Frame Overlay Landscape/Portrait: It will determine how far from the image the frame is, affecting the amount of parallax.  
+         * Parallax Frame Overlay: It will determine how far from the image the frame is, affecting the amount of parallax.  
          * Plain Background With/Without Shadows: It will determine the brightness of the background.  
          * Text Normal Bottom/Top: It will determine the extrude and bevel amount of the text.  
          * Video Background/Foreground: It will determine how visible the image or video is.  
@@ -168,16 +167,14 @@ Once the slideshow generator is created, the slides will be placed in a new scen
 ## Testing And Rendering The Slideshow
 Once the slides are all configured, click the 'Create Slideshow' button to generate the slideshow sequence.  The slideshow will be created in a new Scene called 'Slideshow'.  
 The final slideshow will be in the Video Sequence Editor and can be edited like any other video project.  
-After this is done, the slide settings can still be changed, but the 'Create Slideshow' button must be clicked again to regenerate the slideshow and update the settings.  Any changes made in this step will be erased if the slideshow is re-generated.
+After this is done, the slide settings can still be changed, but the 'Create Slideshow' button must be clicked again to regenerate the slideshow and update the settings.  Any changes made in the vse will be erased if the slideshow is re-generated.
 
 In the VSE there will be a new panel in the properties area titled 'Snu Slideshow Generator'.  This panel provides some helpful shortcuts for previewing the slideshow.  
    * Apply 50% Render Size: This will change the render size of all image slides to 50% of full, greatly reducing image quality.  Use this if you wish to render out a preview of the slideshow.  
    * Apply 100% Render Size: This will change the render size of all image slides to full, ensuring full image quality.  This is the default for the finished slideshow already, so use this only after rendering out a preview at 50% size.  
-   * Disable Antialiasing: Disable antialiasing on all image slides.  This will greatly reduce image quality, but speed up render time.  Only use this when rendering out a preview.  
-   * Enable Antialiasing: Enable antialiasing on all image slides.  This will return the image quality to full.  This is the default for the finished slideshow already, so use this only after rendering out a preview without antialiasing.  
-   *Return To Generator Scene: Click this to return to the slideshow generator scene to make edits.  
+   * Return To Generator Scene: Click this to return to the slideshow generator scene to make edits.  
 
-If any editing in the VSE is to be done at this point, it is recommended that the sequencer view mode be switched to Open GL Preview mode.  Note that some extras will not appear in this mode, but the images will display much faster.  
+If any editing in the VSE is to be done at this point, it is recommended that the sequencer view mode be switched to Look Dev mode.  This will not be a completely accurate representation of the final render, but it should look good and images will display relatively quickly.  
 More music can be added now, the timing of images can be tweaked, fades can be changed, or sequencer effects can be added.  
 The individual slides are now scenes which can be edited or changed in any way if desired.  
 The finished slideshow may now be rendered out to a video as a standard VSE video would be rendered.  
@@ -185,43 +182,59 @@ The finished slideshow may now be rendered out to a video as a standard VSE vide
 
 
 ## Advanced Editing, Extras
-Extras are python scripts kept in a subfolder 'Extras' placed where this addon file is located.  Each extra script defines what is created in the slide scene when it is imported.  The script's filename will determine the name of the extra listed in the UI, minus the .py extension.  The script may do whatever it pleases with the passed in scene, but it should not adjust any other scene.  
+Extras are python scripts kept in a subfolder 'Extras' placed where this addon file is located.  Each extra script defines what is created in the slide scene when it is imported.  The script's filename will determine the name of the extra listed in the UI, minus the .py extension.  
 An extra script with the filename "None.py" will always be ignored by the generator, and is used as an example file.  
 
+All extra scripts must contain the following function: `def extra(data):`  
+The 'data' variable is a dictonary containing the following keys:
 
-The script must have the following function:
-`def extra(image_scene, image_plane, target_empty, camera, extra_amount, extra_text, extra_texture):`  
 
-Passed in variables are as follows:
-* image_scene - A `<bpy_struct, Struct("Scene")>`  
-   This is the scene that the slide has been created in.  
-   The script should be working in this scene.  The function should start with setting the current scene to the image_scene.  
+Passed in variable is a dictionary with the following keys:
+* 'image_scene' - a Blender Scene  
+   This is the scene that the slide has been placed in.  
+   The script should be working in this scene, so starting with setting the current scene to image_scene is a good idea.
 
-* image_plane - A `<bpy_struct, Struct("Object")>`  
-   This is a mesh plane with one face.  
+* 'image_plane' - a 3D Object, specifically a mesh plane  
    This is the plane object that the slide image is on.  
-   This mesh will be centered at point (0, 0, 0), it will be 1 blender unit in size along the y axis, and it will be facing in the positive global z direction.  
-   The generator script does not animate this in any way.  
+   The image_plane will be located at the point (0, 0, 0).  It will be 1 blender unit long on it's y axis, and it will be facing in the positive global z direction.  
+   This plane is not animated in any way.  
 
-* target_empty - A `<bpy_struct, Struct("Object")>`  
-   This is a "Plain Axes" type of empty.  
+* 'material' - a Material  
+   The Material applied to the image plane.  
+
+* 'material_output' - a 'ShaderNodeOutputMaterial' Node  
+   This is the shader output for the node tree.  
+
+* 'material_mix' - a 'ShaderNodeMixShader' Node  
+   Input 1 controls the mix between the shaded and shadeless nodes - 0 is fully shadeless, 1 is fully shaded.  
+
+* 'material_texture' - a 'ShaderNodeTexImage' Node  
+   This contains the image texture.  
+
+* 'material_shadeless' - a 'ShaderNodeEmission' Node  
+   This node's texture is the image, and it outputs to the mix node.  
+
+* 'material_shaded' - a 'ShaderNodeBsdfPrincipled' Node  
+   This node's texture is the image, and it outputs to the mix node.  
+
+* 'target_empty' - a 'plain axes' empty  
    This is the empty that is shown in the slideshow generator as the cross.  
-   This is used as the target for the transforms, but may have other uses.  
+   This is meant specifically for the transforms, but may have other uses.  
 
-* camera - A `<bpy_struct, Struct("Object")>`  
-   This is a camera, the scene camera.  
+* 'camera' - a Camera object  
+   This is the scene camera.  
+   The camera will be located about 1.93 blender units (depending on the transform) above the plane in the global z direction, and pointing in the global negative z direction.  
    This is already set up and parented to the transform, and will be moving and/or scaled in most cases.  
-   The camera will be located about 1.93 blender units (depending on the transform) above the image_plane in the global z direction, and pointing in the global negative z direction.  
    If you wish for an object to be stationary relative to the camera, make sure to parent it to this.  
 
-* extra_amount - A float variable between 0.0 and 1.0.  
+* 'extra_amount' - a float variable between 0.0 and 1.0  
    This is exposed to the UI and is meant to control the 'strength' of the extra scene - for instance the amount of blur on a blurred background, or the extrusion amount of text.  
    The value of 0.5 should be a nice average amount, 0 should be too little for normal usage, and 1 should be too much for normal usage.  
 
-* extra_text - A string variable.  
+* 'extra_text' - a string variable  
    This is exposed to the UI and can be used for text objects in the extra scene.  
 
-* extra_texture - A `<bpy_struct, Struct("Image")>`, or a `None` if not able to be loaded.  
+* 'extra_texture' - a Blender Image, or a None if not able to be loaded  
    This is exposed to the UI and can be a still image or a video.  
 
 

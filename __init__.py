@@ -1047,8 +1047,8 @@ def update_video_length(self, context):
     del context
     current_scene = bpy.data.scenes['Slideshow Generator']
     length_text = current_scene.objects[self.name+" Length"]
-    if self.videolength > self.videomaxlength:
-        self.videolength = self.videomaxlength
+    if self.videolength + self.videooffset > self.videomaxlength:
+        self.videolength = self.videomaxlength - self.videooffset
     length_text.data.body = "Length: "+str(self.videolength)+" Frames"
 
 
@@ -1060,14 +1060,14 @@ def update_offset(self, context):
     material_nodes = get_material_elements(material, image_plane.slideshow.name)
     if material_nodes is None:
         return
-    maxlength = round(self.videomaxlength / get_fps(current_scene), 2) - 1
-    if round(self.videooffset, 2) > maxlength:
+    material_nodes['texture'].image_user.frame_offset = self.videooffset
+    maxlength = self.videomaxlength - 1
+    if self.videooffset > maxlength:
         self.videooffset = maxlength
-        offset = int(self.length * get_fps(current_scene))
-    else:
-        offset = int(self.videooffset * get_fps(current_scene))
-    material_nodes['texture'].image_user.frame_offset = offset
-    update_slide_length(self, context)
+    if self.videooffset + self.videolength > self.videomaxlength:
+        self.videolength = self.videomaxlength - self.videooffset
+        return
+    update_video_length(self, context)
 
 
 def update_extra(self, context):
@@ -1150,16 +1150,21 @@ def list_slides(scene):
     return slides
 
 
-def slideshow_length(slides=None):
+def slideshow_length(slides=None, fps=None):
     scene = bpy.context.scene
     if not slides:
         slides = list_slides(scene)
+    if not fps:
+        fps = get_fps(scene)
     length = 0.0
-    crossfade_length = (scene.snu_slideshow_generator.crossfade_length / get_fps(scene))
+    crossfade_length = (scene.snu_slideshow_generator.crossfade_length / fps)
     default_length = scene.snu_slideshow_generator.slide_length
     for index, slide in enumerate(slides):
         if hasattr(slide, 'slideshow'):
-            length = length + slide.slideshow.length
+            if slide.slideshow.videofile:
+                length = length + (slide.slideshow.videolength / fps)
+            else:
+                length = length + slide.slideshow.length
         else:
             length = length + default_length
         if index > 0:
@@ -1450,6 +1455,7 @@ class SSG_PT_Panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         current_scene = context.scene
+        fps = get_fps(current_scene)
         if is_generator_scene(current_scene):
             #Panel is in slideshow generator mode
             slides = list_slides(current_scene)
@@ -1460,7 +1466,7 @@ class SSG_PT_Panel(bpy.types.Panel):
 
                 row = layout.row()
                 #Calculate and display slideshow length
-                slideshow_seconds = slideshow_length(slides=slides)
+                slideshow_seconds = slideshow_length(slides=slides, fps=fps)
                 slideshow_length_formatted = format_seconds(slideshow_seconds)
                 row.label(text=str(len(slides)) + " Slides, Total Length: "+slideshow_length_formatted)
             else:
@@ -1527,7 +1533,7 @@ class SSG_PT_Panel(bpy.types.Panel):
             else:
                 #row.enabled = True
                 row = layout.row()
-                slideshow_seconds = slideshow_length(slides=image_list)
+                slideshow_seconds = slideshow_length(slides=image_list, fps=fps)
                 slideshow_length_formatted = format_seconds(slideshow_seconds)
                 row.label(text=str(len(image_list)) + " Images In Directory")
                 row = layout.row()
@@ -1564,14 +1570,15 @@ class SSG_PT_SlidePanel(bpy.types.Panel):
     def poll(cls, context):
         current_scene = context.scene
         if is_generator_scene(current_scene):
-            return True
+            if context.active_object:
+                return True
         return False
 
     def draw(self, context):
         layout = self.layout
 
         selected = context.active_object
-        if selected.slideshow.name != "None":
+        if hasattr(selected, 'slideshow') and selected.slideshow.name != "None":
             #If a slide image is selected, display configuration options
             current_slide = selected.slideshow
             row = layout.row()
@@ -2248,7 +2255,10 @@ class SnuSlideshowDeleteSlide(bpy.types.Operator):
                 bpy.ops.object.select_all(action='DESELECT')
                 group = selected.users_collection[0]
                 for group_object in group.objects:
-                    group_object.select_set(True)
+                    try:
+                        group_object.select_set(True)
+                    except:
+                        pass
                 bpy.ops.object.delete()
                 update_order()
         return{'FINISHED'}
