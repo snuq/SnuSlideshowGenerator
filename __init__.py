@@ -220,7 +220,7 @@ def create_scene(oldscene, scenename):
     newscene.render.film_transparent = False
     newscene.render.engine = 'BLENDER_EEVEE'
     newscene.eevee.shadow_cube_size = '1024'
-    newscene.eevee.taa_render_samples = 8
+    newscene.eevee.taa_render_samples = 64
     newscene.render.resolution_percentage = 100
     newscene.render.image_settings.color_mode = 'RGB'
     return newscene

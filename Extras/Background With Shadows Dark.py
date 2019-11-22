@@ -16,7 +16,6 @@ def extra(data):
     background_lamp.data.spot_size = 1.48353
     background_lamp.data.energy = 50
     background_lamp.data.distance = 5
-    background_lamp.data.shadow_buffer_exp = 2
     background_plane.parent = camera
     background_lamp.parent = camera
     background_material = bpy.data.materials.new('Textured Dark Background')

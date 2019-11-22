@@ -36,8 +36,7 @@ def extra(data):
     background_lamp.data.spot_size = 1.48353
     background_lamp.data.energy = 200
     background_lamp.data.distance = 5
-    background_lamp.data.shadow_buffer_exp = 2
-    background_lamp.data.shadow_buffer_soft = 1.5
+    background_lamp.data.shadow_soft_size = 0.1
     background_lamp.parent = camera
     video.parent = camera
     material = bpy.data.materials.new(name)
