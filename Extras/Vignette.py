@@ -50,7 +50,7 @@ def extra(data):
     texture = nodes.new('ShaderNodeTexGradient')
     texture.gradient_type = 'QUADRATIC_SPHERE'
     mapping = nodes.new('ShaderNodeMapping')
-    mapping.translation = (-0.5, -0.5, 0)
+    mapping.inputs['Location'].default_value = (-0.5, -0.5, 0)
     coords = nodes.new('ShaderNodeTexCoord')
     node_tree.links.new(coords.outputs['UV'], mapping.inputs[0])
     node_tree.links.new(mapping.outputs[0], texture.inputs[0])

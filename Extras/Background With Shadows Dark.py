@@ -5,7 +5,7 @@ def extra(data):
     image_scene = data['image_scene']
     camera = data['camera']
     bpy.context.window.scene = image_scene
-    bpy.ops.mesh.primitive_plane_add(size=2, location=(0, 0, -3))
+    bpy.ops.mesh.primitive_plane_add(size=2.5, location=(0, 0, -3))
     background_plane = bpy.context.active_object
     background_plane.name = 'Textured Dark Background'
     modifier = background_plane.modifiers.new(name='', type='SUBSURF')
@@ -16,6 +16,7 @@ def extra(data):
     background_lamp.data.spot_size = 1.48353
     background_lamp.data.energy = 50
     background_lamp.data.distance = 5
+    background_lamp.data.shadow_soft_size = 0.1
     background_plane.parent = camera
     background_lamp.parent = camera
     background_material = bpy.data.materials.new('Textured Dark Background')
@@ -37,7 +38,7 @@ def extra(data):
     background_bump = nodes.new("ShaderNodeBump")
     background_bump.invert = True
     background_bump.inputs["Strength"].default_value = 0.5
-    node_tree.links.new(background_tex_one.outputs["Fac"], background_tex_mix.inputs[1])
+    node_tree.links.new(background_tex_one.outputs["Distance"], background_tex_mix.inputs[1])
     node_tree.links.new(background_tex_two.outputs["Fac"], background_tex_mix.inputs[2])
     node_tree.links.new(background_tex_mix.outputs[0], background_bump.inputs["Height"])
     node_tree.links.new(background_bump.outputs["Normal"], background_shaded.inputs["Normal"])

@@ -18,9 +18,7 @@
 
 #Known bugs:
 #   aspect ratio isnt detected properly for videos with non-square pixels... not sure how to detect this.
-"""
-todo: testing 2.8
-"""
+
 
 import bpy
 import random
@@ -534,6 +532,7 @@ def add_constraints(constraint_object, constraint_type):
 
 
 def is_video_file(file):
+    file = bpy.path.abspath(file)
     if os.path.isfile(file):
         extensions = bpy.path.extensions_movie
         extension = os.path.splitext(file)[1]
@@ -947,7 +946,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                     end_color = (0, 0, 0)
                     apply_mask_to = first_sequence
                 bpy.ops.sequencer.select_all(action='DESELECT')
-                file_path = previous_image_plane.slideshow.custom_transition_file
+                file_path = bpy.path.abspath(previous_image_plane.slideshow.custom_transition_file)
                 effect = slideshow_scene.sequence_editor.sequences.new_movie(filepath=file_path, name=previous_image_plane.name+' Transition', channel=effect_channel + 1, frame_start=second_sequence.frame_final_start + 1)
                 effect.frame_final_end = first_sequence.frame_final_end - 1
                 if inverted:
