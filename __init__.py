@@ -35,7 +35,7 @@ bl_info = {
     "description": "Assists in creating image slideshows with a variety of options.",
     "author": "Hudson Barkley (Snu)",
     "version": (0, 8, 2),
-    "blender": (2, 80, 0),
+    "blender": (2, 81, 0),
     "location": "3D View Sideobar, 'Slideshow' tab.",
     "wiki_url": "https://github.com/snuq/SnuSlideshowGenerator",
     "category": "Import-Export"
