@@ -1,4 +1,4 @@
-# Snu Slideshow Generator For Blender
+# Snu Slideshow Generator For Blender 2.80
 
 This addon for Blender assists in creation of high quality slideshows.  The aim is to be easy to use, but with many customization features if you want to dig under the surface.
 
