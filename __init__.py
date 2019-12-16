@@ -218,7 +218,6 @@ def create_scene(oldscene, scenename):
     newscene.render.film_transparent = False
     newscene.render.engine = 'BLENDER_EEVEE'
     newscene.eevee.shadow_cube_size = '1024'
-    newscene.eevee.taa_render_samples = 64
     newscene.render.resolution_percentage = 100
     newscene.render.image_settings.color_mode = 'RGB'
     return newscene
@@ -553,6 +552,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         if bpy.data.scenes.find(image_scene_name) != -1:
             bpy.data.scenes.remove(bpy.data.scenes[image_scene_name])
         image_scene = create_scene(generator_scene, image_scene_name)
+        image_scene.eevee.taa_render_samples = generator_scene.snu_slideshow_generator.render_samples
 
         #Set up image_scene render settings
         image_scene_frames = (get_fps(image_scene) * image_plane.slideshow.length)
@@ -1473,6 +1473,8 @@ class SSG_PT_Panel(bpy.types.Panel):
 
             row = layout.row()
             row.prop(context.scene.snu_slideshow_generator, "crossfade_length")
+            row = layout.row()
+            row.prop(context.scene.snu_slideshow_generator, "render_samples")
             row = layout.row()
             box = row.box()
             row = box.row()
@@ -2587,6 +2589,10 @@ class SnuSlideshowGeneratorSettings(bpy.types.PropertyGroup):
         default='')
     aspect_ratio: bpy.props.FloatProperty(
         default=0)
+    render_samples: bpy.props.IntProperty(
+        min=0,
+        default=24,
+        max=128)
 
 
 classes = [SnuSlideshowExtraTexturePreset, SnuSlideshowImage, SSG_PT_VSEPanel, SnuSlideshowGotoGenerator,
