@@ -598,6 +598,8 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
             zoffset = aspect * multiplier
         else:
             zoffset = multiplier
+        transform_interpolation = image_plane.slideshow.transform_interpolation
+
         transform_empty.location = (0, 0, zoffset)
         if 'zLoc' in transform.keys():
             locations = len(transform['zLoc'])
@@ -610,6 +612,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 pointy = transform['zLoc'][index][0] + zoffset
                 pointsize = (transform['zLoc'][index][1]) * (image_scene_frames / locations / 2)
                 point = fcurve.keyframe_points.insert(frame=pointx, value=pointy)
+                point.interpolation = transform_interpolation
                 point.handle_left_type = 'FREE'
                 point.handle_right_type = 'FREE'
                 point.handle_left = (pointx - pointsize, pointy)
@@ -625,6 +628,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 pointy = 3.14159265358979 * (transform['zRot'][index][0]) / 180
                 pointsize = (transform['zRot'][index][1]) * (image_scene_frames / locations / 2)
                 point = fcurve.keyframe_points.insert(frame=pointx, value=pointy)
+                point.interpolation = transform_interpolation
                 point.handle_left_type = 'FREE'
                 point.handle_right_type = 'FREE'
                 point.handle_left = (pointx - pointsize, pointy)
@@ -640,6 +644,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 pointy = (transform['xLoc'][index][0]) * aspect_ratio(bpy.context.scene)
                 pointsize = (transform['xLoc'][index][1]) * (image_scene_frames / locations / 2)
                 point = fcurve.keyframe_points.insert(frame=pointx, value=pointy)
+                point.interpolation = transform_interpolation
                 point.handle_left_type = 'FREE'
                 point.handle_right_type = 'FREE'
                 point.handle_left = (pointx - pointsize, pointy)
@@ -659,6 +664,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 pointy = transform['influence'][index][0]
                 pointsize = (transform['influence'][index][1]) * (image_scene_frames / locations / 2)
                 point = fcurve.keyframe_points.insert(frame=pointx, value=pointy)
+                point.interpolation = transform_interpolation
                 point.handle_left_type = 'FREE'
                 point.handle_right_type = 'FREE'
                 point.handle_left = (pointx - pointsize, pointy)
@@ -1269,6 +1275,10 @@ class SnuSlideshowImage(bpy.types.PropertyGroup):
         name="Transform Type Name",
         default="None",
         update=update_transform)
+    transform_interpolation: bpy.props.EnumProperty(
+        name="Transform Interpolation",
+        default="BEZIER",
+        items=[("BEZIER", "Bezier", "", 1), ("LINEAR", "Linear", "", 2)])
     length: bpy.props.FloatProperty(
         name="Slide Length (Seconds)", 
         default=4, 
