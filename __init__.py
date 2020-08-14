@@ -20,7 +20,6 @@
 #   aspect ratio isnt detected properly for videos with non-square pixels... not sure how to detect this.
 
 
-
 import bpy
 import random
 import glob
@@ -35,8 +34,8 @@ bl_info = {
     "name": "Snu Slideshow Generator",
     "description": "Assists in creating image slideshows with a variety of options.",
     "author": "Hudson Barkley (Snu)",
-    "version": (0, 8, 2),
-    "blender": (2, 81, 0),
+    "version": (0, 8, 3),
+    "blender": (2, 83, 0),
     "location": "3D View Sideobar, 'Slideshow' tab.",
     "wiki_url": "https://github.com/snuq/SnuSlideshowGenerator",
     "category": "Import-Export"
@@ -475,7 +474,7 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
 
 def add_constraints(constraint_object, constraint_type):
     #This function handles adding constraints to the various objects of the slideshow generator scene
-    bpy.context.view_layer.objects.active = constraint_object
+    #bpy.context.view_layer.objects.active = constraint_object
     rotation_constraint = constraint_object.constraints.new(type='LIMIT_ROTATION')
     location_constraint = constraint_object.constraints.new(type='LIMIT_LOCATION')
     scale_constraint = constraint_object.constraints.new(type='LIMIT_SCALE')
@@ -2450,7 +2449,7 @@ class SnuSlideshowCreate(bpy.types.Operator):
                 scene_object.select_set(True)
             else:
                 scene_object.select_set(False)
-        context.view_layer.objects.active = active
+        #context.view_layer.objects.active = active
 
         return{'FINISHED'}
 
