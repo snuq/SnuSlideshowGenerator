@@ -200,17 +200,26 @@ def create_scene(oldscene, scenename):
         #Copy the general render settings
         if not prop.is_readonly:
             value = eval('oldscene.render.'+prop.identifier)
-            setattr(newscene.render, prop.identifier, value)
+            try:
+                setattr(newscene.render, prop.identifier, value)
+            except:
+                pass
     for prop in oldscene.render.image_settings.bl_rna.properties:
         #Copy the image/video encoding settings
         if not prop.is_readonly:
             value = eval('oldscene.render.image_settings.'+prop.identifier)
-            setattr(newscene.render.image_settings, prop.identifier, value)
+            try:
+                setattr(newscene.render.image_settings, prop.identifier, value)
+            except:
+                pass
     for prop in oldscene.render.ffmpeg.bl_rna.properties:
         #Copy the video encoder settings
         if not prop.is_readonly:
             value = eval('oldscene.render.ffmpeg.'+prop.identifier)
-            setattr(newscene.render.ffmpeg, prop.identifier, value)
+            try:
+                setattr(newscene.render.ffmpeg, prop.identifier, value)
+            except:
+                pass
 
     newscene.view_settings.view_transform = oldscene.view_settings.view_transform  #really not sure why this is needed, but it is...?
 
