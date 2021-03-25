@@ -34,8 +34,8 @@ bl_info = {
     "name": "Snu Slideshow Generator",
     "description": "Assists in creating image slideshows with a variety of options.",
     "author": "Hudson Barkley (Snu)",
-    "version": (0, 83, 0),
-    "blender": (2, 83, 0),
+    "version": (0, 84, 0),
+    "blender": (2, 92, 0),
     "location": "3D View Sideobar, 'Slideshow' tab.",
     "wiki_url": "https://github.com/snuq/SnuSlideshowGenerator",
     "category": "Import-Export"
@@ -156,7 +156,7 @@ def select_plane(image_plane, scene):
 
 
 def is_generator_scene(scene):
-    if scene.name == 'Slideshow Generator':
+    if scene.snu_slideshow_generator.is_generator_scene or scene.name == 'Slideshow Generator':
         return True
     else:
         return False
@@ -193,7 +193,6 @@ def get_fps(scene):
 def create_scene(oldscene, scenename):
     #Creates a new scene and copies over render settings from current scene
     newscene = bpy.data.scenes.new(scenename)
-    bpy.context.window.scene = newscene
 
     #These loops are needed because there apparently is no way to easily copy the render settings from one scene to another
     for prop in oldscene.render.bl_rna.properties:
@@ -202,7 +201,7 @@ def create_scene(oldscene, scenename):
             value = eval('oldscene.render.'+prop.identifier)
             try:
                 setattr(newscene.render, prop.identifier, value)
-            except:
+            except Exception as e:
                 pass
     for prop in oldscene.render.image_settings.bl_rna.properties:
         #Copy the image/video encoding settings
@@ -210,7 +209,7 @@ def create_scene(oldscene, scenename):
             value = eval('oldscene.render.image_settings.'+prop.identifier)
             try:
                 setattr(newscene.render.image_settings, prop.identifier, value)
-            except:
+            except Exception as e:
                 pass
     for prop in oldscene.render.ffmpeg.bl_rna.properties:
         #Copy the video encoder settings
@@ -218,7 +217,7 @@ def create_scene(oldscene, scenename):
             value = eval('oldscene.render.ffmpeg.'+prop.identifier)
             try:
                 setattr(newscene.render.ffmpeg, prop.identifier, value)
-            except:
+            except Exception as e:
                 pass
 
     newscene.view_settings.view_transform = oldscene.view_settings.view_transform  #really not sure why this is needed, but it is...?
@@ -327,16 +326,12 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
 
     #create and set up image plane
     bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
-    image_mesh = bpy.data.meshes.new(name=image.name)
     ix = ((image.size[0] / image.size[1])/2)
     iy = 0.5
     verts = [(-ix, iy, 0.0), (ix, iy, 0.0), (ix, -iy, 0.0), (-ix, -iy, 0.0)]
     faces = [(3, 2, 1, 0)]
-    image_mesh.from_pydata(verts, [], faces)
-    image_plane = bpy.data.objects.new(name=image.name, object_data=image_mesh)
-    generator_scene.collection.objects.link(image_plane)
+    image_plane = add_object(generator_scene, image.name, 'MESH', mesh_verts=verts, mesh_faces=faces)
     image_plane.slideshow.name = image_plane.name
-
     add_constraints(image_plane, 'Plane')
 
     if video:
@@ -400,28 +395,23 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
                 extra_texture = generator_scene.snu_slideshow_generator.extra_texture_presets[0].path
 
         #add target empty
-        target_empty = bpy.data.objects.new(name=image_plane.name+' Target', object_data=None)
+        target_empty = add_object(generator_scene, image_plane.name+' Target', 'EMPTY')
         target_empty.parent = image_plane
         target_empty.empty_display_size = 1
         add_constraints(target_empty, 'Target')
         image_plane.slideshow.target = target_empty.name
-        generator_scene.collection.objects.link(target_empty)
 
         #add view empty
-        view_empty = bpy.data.objects.new(name=image_plane.name+' View', object_data=None)
+        view_empty = add_object(generator_scene, image_plane.name+' View', 'EMPTY')
         view_empty.parent = image_plane
         view_empty.empty_display_size = 1
         view_empty.scale = aspect_ratio(generator_scene) / 2, .5, .001
         view_empty.empty_display_type = 'CUBE'
         add_constraints(view_empty, 'View')
         image_plane.slideshow.view = view_empty.name
-        generator_scene.collection.objects.link(view_empty)
 
     #add text next to plane saying which index number it is
-    index_text_name = image_plane.name+' Index'
-    index_text_data = bpy.data.curves.new(name=index_text_name, type='FONT')
-    index_text = bpy.data.objects.new(name=index_text_name, object_data=index_text_data)
-    generator_scene.collection.objects.link(index_text)
+    index_text = add_object(generator_scene, image_plane.name+' Index', 'FONT')
     index_text.parent = image_plane
     index_text.location = (-1, -.33, 0)
     index_text.data.align_x = 'RIGHT'
@@ -429,30 +419,21 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
 
     if not video:
         #add text next to plane saying which transform was picked
-        transform_text_name = image_plane.name+' Transform'
-        transform_text_data = bpy.data.curves.new(name=transform_text_name, type='FONT')
-        transform_text = bpy.data.objects.new(name=transform_text_name, object_data=transform_text_data)
-        generator_scene.collection.objects.link(transform_text)
+        transform_text = add_object(generator_scene, image_plane.name+' Transform', 'FONT')
         transform_text.parent = image_plane
         transform_text.location = (1, 0, 0)
         transform_text.scale = .15, .15, 1
         add_constraints(transform_text, 'Text')
 
         #add text next to plane saying which extra was picked
-        extra_text_name = image_plane.name+' Extra'
-        extra_text_data = bpy.data.curves.new(name=extra_text_name, type='FONT')
-        extra_text = bpy.data.objects.new(name=extra_text_name, object_data=extra_text_data)
-        generator_scene.collection.objects.link(extra_text)
+        extra_text = add_object(generator_scene, image_plane.name+' Extra', 'FONT')
         extra_text.parent = image_plane
         extra_text.location = (1, -.25, 0)
         extra_text.scale = .15, .15, 1
         add_constraints(extra_text, 'Text')
 
     #add text next to plane saying how long the slide is
-    length_text_name = image_plane.name+' Length'
-    length_text_data = bpy.data.curves.new(name=length_text_name, type='FONT')
-    length_text = bpy.data.objects.new(name=length_text_name, object_data=length_text_data)
-    generator_scene.collection.objects.link(length_text)
+    length_text = add_object(generator_scene, image_plane.name+' Length', 'FONT')
     length_text.parent = image_plane
     length_text.location = (1, .25, 0)
     length_text.scale = .15, .15, 1
@@ -549,35 +530,55 @@ def is_video_file(file):
     return False
 
 
-def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, image_scene_start, images, previous_image_clip, previous_image_plane):
-    #This function makes the slideshow image scene and adds it to the sequencer of the slideshow_scene scene
-    image_scene_name = image_plane.name
+def clear_sequencer(scene):
+    scene.sequence_editor_clear()
 
-    if not slideshow_scene.sequence_editor:
-        slideshow_scene.sequence_editor_create()
+
+def add_object(scene, name, object_type, mesh_verts=[], mesh_faces=[]):
+    created = None
+    if object_type == 'EMPTY':
+        created = bpy.data.objects.new(name=name, object_data=None)
+    elif object_type == 'FONT':
+        object_data = bpy.data.curves.new(name=name, type='FONT')
+        created = bpy.data.objects.new(name=name, object_data=object_data)
+    elif object_type == 'MESH':
+        mesh = bpy.data.meshes.new(name=name)
+        mesh.from_pydata(mesh_verts, [], mesh_faces)
+        created = bpy.data.objects.new(name=name, object_data=mesh)
+    elif object_type == 'CAMERA':
+        camera = bpy.data.cameras.new(name=name)
+        created = bpy.data.objects.new(name=name, object_data=camera)
+    if created is not None:
+        scene.collection.objects.link(created)
+    return created
+
+
+def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, images, previous_image_clip, previous_image_plane):
+    #This function makes the slideshow image scene and adds it to the sequencer of the scene
+    base_name = generator_scene.snu_slideshow_generator.base_name
+    image_scene_name = base_name + '-' + image_plane.name
+
+    if not generator_scene.sequence_editor:
+        generator_scene.sequence_editor_create()
 
     if not image_plane.slideshow.videofile:
         print('Generating scene for: '+image_scene_name)
         if bpy.data.scenes.find(image_scene_name) != -1:
             bpy.data.scenes.remove(bpy.data.scenes[image_scene_name])
         image_scene = create_scene(generator_scene, image_scene_name)
+        image_scene.snu_slideshow_generator.generator_name = generator_scene.name
+        image_scene.snu_slideshow_generator.base_name = base_name
         image_scene.eevee.taa_render_samples = generator_scene.snu_slideshow_generator.render_samples
 
         #Set up image_scene render settings
         image_scene_frames = (get_fps(image_scene) * image_plane.slideshow.length)
         image_scene.frame_end = image_scene_frames
 
-        bpy.context.window.scene = generator_scene
-        bpy.ops.object.select_all(action='DESELECT')
-        image_plane.select_set(True)
         target_empty = generator_scene.objects[image_plane.slideshow.target]
-        target_empty.select_set(True)
         view_empty = generator_scene.objects[image_plane.slideshow.view]
-        view_empty.select_set(True)
-        bpy.ops.object.make_links_scene(scene=image_scene.name)
-
-        #set scene
-        bpy.context.window.scene = image_scene
+        image_scene.collection.objects.link(image_plane)
+        image_scene.collection.objects.link(target_empty)
+        image_scene.collection.objects.link(view_empty)
 
         #set up scene world
         world = bpy.data.worlds.new(image_scene.name)
@@ -586,17 +587,14 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         world.color = (0, 0, 0)
 
         #create transforms
-        bpy.ops.object.select_all(action='DESELECT')
-        image_scene.cursor.location = (0.0, 0.0, 0.0)
-        bpy.ops.object.empty_add()
-        transform_empty = bpy.context.active_object
         transform_index = get_transform(image_plane.slideshow.transform)
         if transform_index >= 0:
             transform = transforms[transform_index]
         else:
             transform = transforms[0]
+        image_scene.cursor.location = (0.0, 0.0, 0.0)
         image_scene.frame_current = 1
-        transform_empty.name = transform['name']
+        transform_empty = add_object(image_scene, transform['name'], 'EMPTY')
         transform_empty.animation_data_create()
         transform_action = bpy.data.actions.new(transform['name'])
         transform_empty.animation_data.action = transform_action
@@ -680,17 +678,14 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 point.handle_right = (pointx + pointsize, pointy)
 
         #set up camera location scale and animation
-        bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
-        bpy.ops.object.camera_add()
-        camera = bpy.context.active_object
+        camera = add_object(image_scene, generator_scene.name+' Camera', 'CAMERA')
         camera.parent = transform_empty
         image_scene.camera = camera
         camera.data.dof.focus_object = image_plane
         camera.data.dof.use_dof = False
 
         #add camera_scale empty that will scale the transform and camera
-        bpy.ops.object.empty_add()
-        camera_scale = bpy.context.active_object
+        camera_scale = add_object(image_scene, generator_scene.name+' Camera Scale', 'EMPTY')
         camera_scale.parent = image_plane
         transform_empty.parent = camera_scale
         camera_scale.location = view_empty.location
@@ -702,6 +697,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         if image_plane.slideshow.extra != 'None':
             extra = get_extra(image_plane.slideshow.extra)
             if extra:
+                current_scene = bpy.context.window.scene
                 try:
                     folder = os.path.split(extra)[0]
                     file = os.path.splitext(os.path.split(extra)[1])[0]
@@ -728,17 +724,18 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                             'extra_texture': image}
                         script.extra(data)
                     del script
+                    bpy.context.window.scene = current_scene
                 except ImportError:
                     pass
-        update_scene(image_scene)
+        #update_scene(image_scene)
 
         #Add the image scene to the slideshow scene
-        clip = slideshow_scene.sequence_editor.sequences.new_scene(scene=image_scene, name=image_scene.name, channel=((i % 2) + 1), frame_start=image_scene_start)
+        clip = generator_scene.sequence_editor.sequences.new_scene(scene=image_scene, name=image_scene.name, channel=((i % 2) + 1), frame_start=image_scene_start)
 
     else:
         clipx = image_plane.dimensions[0]
         clipy = image_plane.dimensions[1]
-        aspect = aspect_ratio(slideshow_scene)
+        aspect = aspect_ratio(generator_scene)
         clip_aspect = clipx / clipy
         clip_aspect_flipped = clipy / clipx
         aspect_difference = abs(aspect - clip_aspect)
@@ -753,9 +750,9 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         blur_base_channel = base_channel
         if blur_background:
             base_channel = base_channel + 4
-        clip = slideshow_scene.sequence_editor.sequences.new_movie(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel, frame_start=image_scene_start)
+        clip = generator_scene.sequence_editor.sequences.new_movie(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel, frame_start=image_scene_start)
         if blur_background:
-            blur_clip = slideshow_scene.sequence_editor.sequences.new_movie(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=blur_base_channel, frame_start=image_scene_start)
+            blur_clip = generator_scene.sequence_editor.sequences.new_movie(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=blur_base_channel, frame_start=image_scene_start)
         else:
             blur_clip = None
         image_scene_frames = image_plane.slideshow.videolength
@@ -765,32 +762,31 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         blur_speed_clip = None
         blur_blur_clip = None
         if image_plane.slideshow.videoaudio:
-            audioclip = slideshow_scene.sequence_editor.sequences.new_sound(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel + 4, frame_start=image_scene_start)
+            audioclip = generator_scene.sequence_editor.sequences.new_sound(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel + 4, frame_start=image_scene_start)
             if audioclip.frame_duration == 0:
-                slideshow_scene.sequence_editor.sequences.remove(audioclip)
+                generator_scene.sequence_editor.sequences.remove(audioclip)
                 print('No Audio Found For This Clip')
                 audioclip = None
 
             else:
-                bpy.context.window.scene = slideshow_scene
                 #Add fadein/out to audio clip
-                slideshow_scene.frame_current = image_scene_start
+                generator_scene.frame_current = image_scene_start
                 audioclip.volume = 0
                 audioclip.keyframe_insert(data_path='volume')
-                slideshow_scene.frame_current = image_scene_start + slideshow_scene.snu_slideshow_generator.crossfade_length
+                generator_scene.frame_current = image_scene_start + generator_scene.snu_slideshow_generator.crossfade_length
                 audioclip.volume = 1
                 audioclip.keyframe_insert(data_path='volume')
-                slideshow_scene.frame_current = audioclip.frame_final_end - slideshow_scene.snu_slideshow_generator.crossfade_length
+                generator_scene.frame_current = audioclip.frame_final_end - generator_scene.snu_slideshow_generator.crossfade_length
                 audioclip.keyframe_insert(data_path='volume')
-                slideshow_scene.frame_current = audioclip.frame_final_end
+                generator_scene.frame_current = audioclip.frame_final_end
                 audioclip.volume = 0
                 audioclip.keyframe_insert(data_path='volume')
                 length_percent = image_scene_frames / clip.frame_final_duration
                 if audioclip.frame_final_duration != clip.frame_final_duration:
-                    speed_clip = slideshow_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=clip.channel+1, seq1=clip, frame_start=clip.frame_final_start)
+                    speed_clip = generator_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=clip.channel+1, seq1=clip, frame_start=clip.frame_final_start)
                     clip.frame_final_duration = audioclip.frame_final_duration
                     if blur_background:
-                        blur_speed_clip = slideshow_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=blur_clip.channel+1, seq1=blur_clip, frame_start=blur_clip.frame_final_start)
+                        blur_speed_clip = generator_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=blur_clip.channel+1, seq1=blur_clip, frame_start=blur_clip.frame_final_start)
                         blur_clip.frame_final_duration = audioclip.frame_final_duration
                 image_scene_frames = audioclip.frame_final_duration * length_percent
 
@@ -810,14 +806,14 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
         apply_transform.select = True
         if blur_background:
             blur_apply_transform.select = True
-        scale_clip = slideshow_scene.sequence_editor.sequences.new_effect(name='Transform', type='TRANSFORM', channel=apply_transform.channel+1, seq1=apply_transform, frame_start=apply_transform.frame_final_start)
+        scale_clip = generator_scene.sequence_editor.sequences.new_effect(name='Transform', type='TRANSFORM', channel=apply_transform.channel+1, seq1=apply_transform, frame_start=apply_transform.frame_final_start)
         if blur_background:
             scale_clip.blend_type = 'ALPHA_OVER'
             clip.mute = True
             if speed_clip:
                 speed_clip.mute = True
-            blur_scale_clip = slideshow_scene.sequence_editor.sequences.new_effect(name='Transform', type='TRANSFORM', channel=blur_apply_transform.channel+1, seq1=blur_apply_transform, frame_start=blur_apply_transform.frame_final_start)
-            blur_blur_clip = slideshow_scene.sequence_editor.sequences.new_effect(name='Blur', type='GAUSSIAN_BLUR', channel=blur_apply_transform.channel+2, seq1=blur_scale_clip, frame_start=blur_apply_transform.frame_final_start)
+            blur_scale_clip = generator_scene.sequence_editor.sequences.new_effect(name='Transform', type='TRANSFORM', channel=blur_apply_transform.channel+1, seq1=blur_apply_transform, frame_start=blur_apply_transform.frame_final_start)
+            blur_blur_clip = generator_scene.sequence_editor.sequences.new_effect(name='Blur', type='GAUSSIAN_BLUR', channel=blur_apply_transform.channel+2, seq1=blur_scale_clip, frame_start=blur_apply_transform.frame_final_start)
             blur_blur_clip.size_x = 40
             blur_blur_clip.size_y = 40
         else:
@@ -875,7 +871,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 blur_scale_clip.scale_start_y = blur_scaley
 
         #Create meta strip
-        slideshow_scene.sequence_editor.active_strip = clip
+        generator_scene.sequence_editor.active_strip = clip
         if blur_clip:
             blur_clip.select = True
         if blur_scale_clip:
@@ -892,28 +888,26 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
             audioclip.select = True
         clip.select = True
         bpy.ops.sequencer.meta_make()
-        clip = slideshow_scene.sequence_editor.active_strip
+        clip = generator_scene.sequence_editor.active_strip
 
         #Trim video clip
         offset = image_plane.slideshow.videooffset
         clip.frame_offset_start = offset
         clip.frame_start = image_scene_start - offset
-        #image_scene_frames = int(image_plane.slideshow.length * get_fps(slideshow_scene))
+        #image_scene_frames = int(image_plane.slideshow.length * get_fps(generator_scene))
         clip.frame_final_end = clip.frame_final_start + image_scene_frames
         if blur_background:
             clip.channel = blur_base_channel
         else:
             clip.channel = base_channel
 
-    bpy.context.window.scene = slideshow_scene
-
     #Add fade in
     if i == 0:
         clip.blend_type = 'ALPHA_OVER'
-        slideshow_scene.frame_current = 1
+        generator_scene.frame_current = 1
         clip.blend_alpha = 0
         clip.keyframe_insert(data_path='blend_alpha')
-        slideshow_scene.frame_current = generator_scene.snu_slideshow_generator.crossfade_length
+        generator_scene.frame_current = generator_scene.snu_slideshow_generator.crossfade_length
         clip.blend_alpha = 1
         clip.keyframe_insert(data_path='blend_alpha')
 
@@ -923,10 +917,10 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
             first_sequence = previous_image_clip
             second_sequence = clip
             if previous_image_plane.slideshow.transition == "GAMMA_CROSS":
-                effect = slideshow_scene.sequence_editor.sequences.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.frame_final_start, frame_end=first_sequence.frame_final_end, type='GAMMA_CROSS', seq1=first_sequence, seq2=second_sequence)
+                effect = generator_scene.sequence_editor.sequences.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.frame_final_start, frame_end=first_sequence.frame_final_end, type='GAMMA_CROSS', seq1=first_sequence, seq2=second_sequence)
                 effect.frame_still_end = first_sequence.frame_final_end  #apparently needed since the frame_end doesnt get set in the previous function...
             elif previous_image_plane.slideshow.transition == "WIPE":
-                effect = slideshow_scene.sequence_editor.sequences.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.frame_final_start, frame_end=first_sequence.frame_final_end, type='WIPE', seq1=first_sequence, seq2=second_sequence)
+                effect = generator_scene.sequence_editor.sequences.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.frame_final_start, frame_end=first_sequence.frame_final_end, type='WIPE', seq1=first_sequence, seq2=second_sequence)
                 effect.frame_still_end = first_sequence.frame_final_end  #apparently needed since the frame_end doesnt get set in the previous function...
                 effect.transition_type = previous_image_plane.slideshow.wipe_type
                 effect.direction = previous_image_plane.slideshow.wipe_direction
@@ -962,17 +956,17 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                     apply_mask_to = first_sequence
                 bpy.ops.sequencer.select_all(action='DESELECT')
                 file_path = bpy.path.abspath(previous_image_plane.slideshow.custom_transition_file)
-                effect = slideshow_scene.sequence_editor.sequences.new_movie(filepath=file_path, name=previous_image_plane.name+' Transition', channel=effect_channel + 1, frame_start=second_sequence.frame_final_start + 1)
+                effect = generator_scene.sequence_editor.sequences.new_movie(filepath=file_path, name=previous_image_plane.name+' Transition', channel=effect_channel + 1, frame_start=second_sequence.frame_final_start + 1)
                 effect.frame_final_end = first_sequence.frame_final_end - 1
                 if inverted:
                     invert_modifier = effect.modifiers.new(name='Invert Colors', type='CURVES')
                     invert_modifier.curve_mapping.curves[3].points[0].location = (0, 1)
                     invert_modifier.curve_mapping.curves[3].points[1].location = (1, 0)
-                effect_speed = slideshow_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=effect.channel + 1, seq1=effect, frame_start=effect.frame_final_start)
-                effect_final = slideshow_scene.sequence_editor.sequences.new_effect(name='Color', type='COLOR', channel=effect.channel, frame_start=effect.frame_final_end, frame_end=effect.frame_final_end + 1)
+                effect_speed = generator_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=effect.channel + 1, seq1=effect, frame_start=effect.frame_final_start)
+                effect_final = generator_scene.sequence_editor.sequences.new_effect(name='Color', type='COLOR', channel=effect.channel, frame_start=effect.frame_final_end, frame_end=effect.frame_final_end + 1)
                 effect_final.frame_final_end = effect_final.frame_final_start + 1
                 effect_final.color = end_color
-                effect_start = slideshow_scene.sequence_editor.sequences.new_effect(name='Color', type='COLOR', channel=effect.channel, frame_start=effect.frame_final_start - 1, frame_end=effect.frame_final_start)
+                effect_start = generator_scene.sequence_editor.sequences.new_effect(name='Color', type='COLOR', channel=effect.channel, frame_start=effect.frame_final_start - 1, frame_end=effect.frame_final_start)
                 effect_start.frame_final_end = effect_start.frame_final_start + 1
                 effect_start.color = start_color
                 effect.select = True
@@ -980,7 +974,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
                 effect_final.select = True
                 effect_start.select = True
                 bpy.ops.sequencer.meta_make()
-                effect = slideshow_scene.sequence_editor.active_strip
+                effect = generator_scene.sequence_editor.active_strip
                 effect.name = previous_image_clip.name+' to '+clip.name
                 effect.channel = effect_channel + 1
                 effect.mute = True
@@ -991,19 +985,19 @@ def create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, ima
             elif previous_image_plane.slideshow.transition == "NONE":
                 pass
             else:
-                effect = slideshow_scene.sequence_editor.sequences.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.frame_final_start, frame_end=first_sequence.frame_final_end, type='CROSS', seq1=first_sequence, seq2=second_sequence)
+                effect = generator_scene.sequence_editor.sequences.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.frame_final_start, frame_end=first_sequence.frame_final_end, type='CROSS', seq1=first_sequence, seq2=second_sequence)
                 effect.frame_still_end = first_sequence.frame_final_end  #apparently needed since the frame_end doesnt get set in the previous function...
 
     #Add fade out
     if i == (len(images) - 1):
         clip.blend_type = 'ALPHA_OVER'
-        slideshow_scene.frame_current = image_scene_start + image_scene_frames
+        generator_scene.frame_current = image_scene_start + image_scene_frames
         clip.blend_alpha = 0
         clip.keyframe_insert(data_path='blend_alpha')
-        slideshow_scene.frame_current = image_scene_start + image_scene_frames - generator_scene.snu_slideshow_generator.crossfade_length
+        generator_scene.frame_current = image_scene_start + image_scene_frames - generator_scene.snu_slideshow_generator.crossfade_length
         clip.blend_alpha = 1
         clip.keyframe_insert(data_path='blend_alpha')
-        slideshow_scene.frame_current = 1
+        generator_scene.frame_current = 1
 
     return clip
 
@@ -1050,16 +1044,14 @@ def get_transform(name):
 
 def update_slide_length(self, context):
     #Callback for SlideshowImage.length to update the length display text
-    del context
-    current_scene = bpy.data.scenes['Slideshow Generator']
+    current_scene = context.scene
     length_text = current_scene.objects[self.name+" Length"]
     length_text.data.body = "Length: "+str(round(self.length, 2))+" Seconds"
 
 
 def update_video_length(self, context):
     #callback for SlideshowImage.videolength to update the length display text
-    del context
-    current_scene = bpy.data.scenes['Slideshow Generator']
+    current_scene = context.scene
     length_text = current_scene.objects[self.name+" Length"]
     if self.videolength + self.videooffset > self.videomaxlength:
         self.videolength = self.videomaxlength - self.videooffset
@@ -1068,7 +1060,7 @@ def update_video_length(self, context):
 
 def update_offset(self, context):
     #Callback for SlideshowImage.videooffset to update the image texture's offset
-    current_scene = bpy.data.scenes['Slideshow Generator']
+    current_scene = context.scene
     image_plane = current_scene.objects[self.name]
     material = image_plane.material_slots[0].material
     material_nodes = get_material_elements(material, image_plane.slideshow.name)
@@ -1086,9 +1078,8 @@ def update_offset(self, context):
 
 def update_extra(self, context):
     #Callback for SlideshowImage.extra to update the extra display text
-    del context
     try:
-        current_scene = bpy.data.scenes['Slideshow Generator']
+        current_scene = context.scene
         extra_text = current_scene.objects[self.name+" Extra"]
         extra_text.data.body = "Extra: "+self.extra
     except:
@@ -1097,9 +1088,8 @@ def update_extra(self, context):
 
 def update_transform(self, context):
     #Callback for SlideshowImage.transform to update the transform display text
-    del context
     try:
-        current_scene = bpy.data.scenes['Slideshow Generator']
+        current_scene = context.scene
         transform_text = current_scene.objects[self.name+" Transform"]
         transform_text.data.body = "Transform: "+self.transform
     except:
@@ -1108,8 +1098,7 @@ def update_transform(self, context):
 
 def update_index(self, context):
     #Callback for SlideshowImage.index to update the index display text, and the position of the image plane
-    del context
-    current_scene = bpy.data.scenes['Slideshow Generator']
+    current_scene = context.scene
     image_plane = current_scene.objects[self.name]
     position = -self.index
     image_plane.location = (0.0, position, 0.0)
@@ -1119,8 +1108,7 @@ def update_index(self, context):
 
 def update_rotate(self, context):
     #Callback for SlideshowImage.rotate to update the rotation of the image plane
-    del context
-    current_scene = bpy.data.scenes['Slideshow Generator']
+    current_scene = context.scene
     image_plane = current_scene.objects[self.name]
     mesh = image_plane.data
     material = image_plane.material_slots[0].material
@@ -1406,7 +1394,7 @@ class SSG_PT_VSEPanel(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         #Check if in slideshow scene
-        if context.scene.name == 'Slideshow':
+        if context.scene.snu_slideshow_generator.is_generator_scene:
             try:
                 if len(context.scene.sequence_editor.sequences_all) > 0:
                     return True
@@ -1422,7 +1410,7 @@ class SSG_PT_VSEPanel(bpy.types.Panel):
         layout = self.layout
         layout.operator('slideshow.preview_mode', text="Apply 50% Render Size").mode = 'halfsize'
         layout.operator('slideshow.preview_mode', text="Apply 100% Render Size").mode = 'fullsize'
-        layout.operator('slideshow.gotogenerator', text="Return To The Generator Scene")
+        layout.operator('slideshow.gotogenerator', text="Return To The Generator")
 
 
 class SnuSlideshowGotoGenerator(bpy.types.Operator):
@@ -1431,13 +1419,10 @@ class SnuSlideshowGotoGenerator(bpy.types.Operator):
     bl_label = "Return To The Generator Scene"
 
     def execute(self, context):
-        if "Slideshow Generator" in bpy.data.scenes:
-            generator_scene = bpy.data.scenes['Slideshow Generator']
-            context.window.scene = generator_scene
-            workspace_name = generator_scene.snu_slideshow_generator.generator_workspace
-            if workspace_name in bpy.data.workspaces:
-                workspace = bpy.data.workspaces[workspace_name]
-                context.window.workspace = workspace
+        workspace_name = context.scene.snu_slideshow_generator.generator_workspace
+        if workspace_name in bpy.data.workspaces:
+            workspace = bpy.data.workspaces[workspace_name]
+            context.window.workspace = workspace
         return{'FINISHED'}
 
 
@@ -1537,7 +1522,9 @@ class SSG_PT_Panel(bpy.types.Panel):
             row = layout.row()
             row.prop(context.scene.snu_slideshow_generator, "slide_length")
             row = layout.row()
-            row.operator('slideshow.generator')
+            row.operator('slideshow.generator', text='New Slideshow Scene').mode = 'new'
+            row = layout.row()
+            row.operator('slideshow.generator', text='Slideshow In This Scene').mode = 'direct'
             #get list of images in image_directory, gray out generator button if none found
             image_types = list(bpy.path.extensions_image)
             image_list = []
@@ -1795,8 +1782,7 @@ class SnuSlideshowOpenAudio(bpy.types.Operator):
 
     def execute(self, context):
         #This function is called when the file browser dialog is closed with an ok
-        del context
-        generator_scene = bpy.data.scenes['Slideshow Generator']
+        generator_scene = context.scene
         generator_scene.snu_slideshow_generator.audio_track = self.filepath
         return{'FINISHED'}
 
@@ -1828,8 +1814,7 @@ class SnuSlideshowAddSlide(bpy.types.Operator):
 
     def execute(self, context):
         #This function is called when the file browser dialog is closed with an ok
-        del context
-        generator_scene = bpy.data.scenes['Slideshow Generator']
+        generator_scene = context.scene
         import os
 
         #iterate through the selected files and attempt to load them into the generator scene
@@ -2265,6 +2250,7 @@ class SnuSlideshowDeleteSlide(bpy.types.Operator):
         selected_objects = context.selected_objects
 
         #Iterate through selected objects
+        selected_slides = []
         for selected in selected_objects:
             if len(selected_objects) == 1 and selected.slideshow.name == "None" and selected.parent:
                 #Only one object is selected, and the selected object is one of the sub objects of a slide - the user probably wants to delete that slide, so change the selection to that
@@ -2272,15 +2258,14 @@ class SnuSlideshowDeleteSlide(bpy.types.Operator):
 
             if selected.slideshow.name != "None":
                 #The selected object is a slide, delete it and all its sub-objects
-                bpy.ops.object.select_all(action='DESELECT')
-                group = selected.users_collection[0]
-                for group_object in group.objects:
-                    try:
-                        group_object.select_set(True)
-                    except:
-                        pass
-                bpy.ops.object.delete()
-                update_order()
+                selected_slides.append(selected)
+        bpy.ops.object.select_all(action='DESELECT')
+        for selected in selected_slides:
+            context.view_layer.objects.active = selected
+            selected.select_set(True)
+            bpy.ops.object.select_grouped(extend=True, type='CHILDREN_RECURSIVE')
+        bpy.ops.object.delete()
+        update_order()
         return{'FINISHED'}
 
 
@@ -2366,13 +2351,11 @@ class SnuSlideshowCreate(bpy.types.Operator):
     bl_description = 'Turns the Slideshow Generator scene into a full slideshow'
 
     def execute(self, context):
-        generator_scene = bpy.data.scenes['Slideshow Generator']
+        generator_scene = context.scene
         generator_scene.snu_slideshow_generator.generator_workspace = context.workspace.name
 
         #Set up the Slideshow scene
-        if 'Slideshow' in bpy.data.scenes:
-            bpy.data.scenes.remove(bpy.data.scenes['Slideshow'])
-        slideshow_scene = create_scene(generator_scene, 'Slideshow')
+        clear_sequencer(generator_scene)
         image_scene_start = 1
 
         #Create a copy of the currently active and selected objects so they can be re-set later
@@ -2382,24 +2365,20 @@ class SnuSlideshowCreate(bpy.types.Operator):
             if scene_object.select_get():
                 selected.append(scene_object)
 
-        context.window.scene = slideshow_scene
-
         #Iterate through image list, create scene for each image, and import into VSE
         images = list_slides(generator_scene)
         images.sort(key=lambda x: x.slideshow.index)
         previous_image_clip = None
         previous_image_plane = None
         for i, image_plane in enumerate(images):
-            previous_image_clip = create_slideshow_slide(image_plane, i, generator_scene, slideshow_scene, image_scene_start, images, previous_image_clip, previous_image_plane)
+            previous_image_clip = create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, images, previous_image_clip, previous_image_plane)
             previous_image_plane = image_plane
             image_scene_start = previous_image_clip.frame_final_end - generator_scene.snu_slideshow_generator.crossfade_length
-        bpy.ops.sequencer.select_all(action='DESELECT')
-
         self.report({'INFO'}, "Slideshow created")
 
         #Set slideshow length
-        slideshow_scene.frame_end = image_scene_start + generator_scene.snu_slideshow_generator.crossfade_length
-        slideshow_scene.sync_mode = 'AUDIO_SYNC'
+        generator_scene.frame_end = image_scene_start + generator_scene.snu_slideshow_generator.crossfade_length
+        generator_scene.sync_mode = 'AUDIO_SYNC'
 
         #Add slideshow audio if enabled
         if generator_scene.snu_slideshow_generator.audio_enabled:
@@ -2413,7 +2392,7 @@ class SnuSlideshowCreate(bpy.types.Operator):
                     #This loop will repeat adding the audio track until the end of the slideshow is reached
                     i = 0
                     audio_sequence = None
-                    while audio_frame_end < slideshow_scene.frame_end:
+                    while audio_frame_end < generator_scene.frame_end:
                         if audio_frame_end == 0:
                             #Set the starting point for the first loop
                             frame_start = 1
@@ -2421,22 +2400,22 @@ class SnuSlideshowCreate(bpy.types.Operator):
                             #Set the starting point for a repeating audio loop
                             frame_start = audio_frame_end+1-generator_scene.snu_slideshow_generator.audio_loop_fade
 
-                        audio_sequence = slideshow_scene.sequence_editor.sequences.new_sound(name='Audio', filepath=filename, channel=6+(i % 2), frame_start=frame_start)
+                        audio_sequence = generator_scene.sequence_editor.sequences.new_sound(name='Audio', filepath=filename, channel=6+(i % 2), frame_start=frame_start)
 
                         if audio_sequence.frame_duration > 0:
                             #The audio sequence was added correctly, set the ending point
                             audio_frame_end = audio_sequence.frame_final_end
                         else:
                             #Something went wrong, abort adding audio sequences
-                            audio_frame_end = slideshow_scene.frame_end
+                            audio_frame_end = generator_scene.frame_end
                         i += 1
 
                     #Add a fadeout to the last audio sequence
                     if audio_sequence:
-                        audio_sequence.frame_final_end = slideshow_scene.frame_end
-                        slideshow_scene.frame_current = slideshow_scene.frame_end - generator_scene.snu_slideshow_generator.audio_fade_length
+                        audio_sequence.frame_final_end = generator_scene.frame_end
+                        generator_scene.frame_current = generator_scene.frame_end - generator_scene.snu_slideshow_generator.audio_fade_length
                         audio_sequence.keyframe_insert(data_path='volume')
-                        slideshow_scene.frame_current = slideshow_scene.frame_end
+                        generator_scene.frame_current = generator_scene.frame_end
                         audio_sequence.volume = 0
                         audio_sequence.keyframe_insert(data_path='volume')
 
@@ -2446,9 +2425,9 @@ class SnuSlideshowCreate(bpy.types.Operator):
         except KeyError:
             pass
 
-        slideshow_scene.render.sequencer_gl_preview = 'MATERIAL'
+        generator_scene.render.sequencer_gl_preview = 'MATERIAL'
         try:
-            slideshow_scene.render.use_sequencer_gl_preview = True
+            generator_scene.render.use_sequencer_gl_preview = True
         except:
             pass
 
@@ -2469,11 +2448,15 @@ class SnuSlideshowGenerator(bpy.types.Operator):
     bl_label = 'Create Slideshow Generator'
     bl_description = 'Imports images and creates a scene for setting up the slideshow'
 
+    mode: bpy.props.StringProperty()
+
     def execute(self, context):
         #check if slideshow generator scene exists, warn and cancel if it does
-        if bpy.data.scenes.find('Slideshow Generator') != -1:
-            self.report({'WARNING'}, 'Slideshow Generator Scene Already Exists')
-            return{'CANCELLED'}
+        if self.mode != 'direct':
+            generator_name = context.scene.name + ' Slideshow Generator'
+            if bpy.data.scenes.find(generator_name) != -1:
+                self.report({'WARNING'}, 'Slideshow Generator Scene Already Exists')
+                return{'CANCELLED'}
 
         slide_length = context.scene.snu_slideshow_generator.slide_length
         image_directory = context.scene.snu_slideshow_generator.image_directory
@@ -2500,17 +2483,25 @@ class SnuSlideshowGenerator(bpy.types.Operator):
         self.report({'INFO'}, 'Importing '+str(total_images)+' images')
 
         #create scene, switch to it, and set up properties
-        oldscene = context.scene
-        generator_scene = create_scene(oldscene, 'Slideshow Generator')
-        #context.window.scene = generator_scene
-        generator_scene.snu_slideshow_generator.crossfade_length = 10
-        generator_scene.snu_slideshow_generator.slide_length = slide_length
-        generator_scene.snu_slideshow_generator.hidden_transforms = oldscene.snu_slideshow_generator.hidden_transforms
-        generator_scene.snu_slideshow_generator.hidden_extras = oldscene.snu_slideshow_generator.hidden_extras
-        for extra_texture_preset in oldscene.snu_slideshow_generator.extra_texture_presets:
-            new_preset = generator_scene.snu_slideshow_generator.extra_texture_presets.add()
-            new_preset.name = extra_texture_preset.name
-            new_preset.path = extra_texture_preset.path
+        if self.mode == 'direct':
+            generator_scene = context.scene
+            generator_scene.snu_slideshow_generator.base_name = generator_scene.name
+            generator_scene.snu_slideshow_generator.is_generator_scene = True
+            generator_scene.snu_slideshow_generator.crossfade_length = 10
+        else:
+            oldscene = context.scene
+            generator_scene = create_scene(oldscene, generator_name)
+            generator_scene.snu_slideshow_generator.base_name = oldscene.name
+            generator_scene.snu_slideshow_generator.is_generator_scene = True
+            bpy.context.window.scene = generator_scene
+            generator_scene.snu_slideshow_generator.crossfade_length = 10
+            generator_scene.snu_slideshow_generator.slide_length = slide_length
+            generator_scene.snu_slideshow_generator.hidden_transforms = oldscene.snu_slideshow_generator.hidden_transforms
+            generator_scene.snu_slideshow_generator.hidden_extras = oldscene.snu_slideshow_generator.hidden_extras
+            for extra_texture_preset in oldscene.snu_slideshow_generator.extra_texture_presets:
+                new_preset = generator_scene.snu_slideshow_generator.extra_texture_presets.add()
+                new_preset.name = extra_texture_preset.name
+                new_preset.path = extra_texture_preset.path
 
         #Attempt to switch to the correct viewport view and settings
         space = get_first_3d_view()
@@ -2529,9 +2520,8 @@ class SnuSlideshowGenerator(bpy.types.Operator):
             space.lock_cursor = True
 
         #Add header instruction text
-        instructions_data = bpy.data.curves.new(name='Instructions', type='FONT')
-        instructions = bpy.data.objects.new(name='Instructions', object_data=instructions_data)
-        generator_scene.collection.objects.link(instructions)
+        
+        instructions = add_object(generator_scene, 'Instructions', 'FONT')
         instructions.location = (-1, 1.25, 0.0)
         instructions.scale = (.15, .15, .15)
         instructions.data.body = "Select an image and see the Scene tab in the properties area for details.\nDrag an image to rearrange it in the timeline.\nThe center cross on each image represents the focal point for transformations.\nThe box surrounding each image represents the viewable area for the cameara.\nMove, scale, and rotate this to change the viewable area."
@@ -2557,6 +2547,8 @@ class SnuSlideshowGenerator(bpy.types.Operator):
 
 class SnuSlideshowGeneratorSettings(bpy.types.PropertyGroup):
     #snu_slideshow_generator.audio_loop_fade
+    is_generator_scene: bpy.props.BoolProperty(
+        default=False)
     hidden_transforms: bpy.props.StringProperty(
         name="Hidden Transforms",
         default="",
@@ -2603,6 +2595,12 @@ class SnuSlideshowGeneratorSettings(bpy.types.PropertyGroup):
         default=60,
         min=0,
         max=600)
+    base_name: bpy.props.StringProperty(
+        name="Base Name For Created Scenes",
+        default='')
+    generator_name: bpy.props.StringProperty(
+        name="Generator Scene Name",
+        default='')
     generator_workspace: bpy.props.StringProperty(
         name="Generator Scene Workspace",
         default='')
