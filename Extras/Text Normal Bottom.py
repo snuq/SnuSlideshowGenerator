@@ -57,4 +57,3 @@ def extra(data):
     lamp3.parent = text
     lamp3.location = (0, 0.334, -11.44)
     lamp3.data.energy = 2.14
-    lamp3.data.distance = 56

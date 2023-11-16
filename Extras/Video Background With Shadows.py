@@ -35,7 +35,6 @@ def extra(data):
     background_lamp = bpy.context.active_object
     background_lamp.data.spot_size = 1.48353
     background_lamp.data.energy = 200
-    background_lamp.data.distance = 5
     background_lamp.data.shadow_soft_size = 0.05
     background_lamp.parent = camera
     video.parent = camera
@@ -47,7 +46,7 @@ def extra(data):
     nodes.clear()
     output = nodes.new('ShaderNodeOutputMaterial')
     shader = nodes.new('ShaderNodeBsdfPrincipled')
-    shader.inputs['Specular'].default_value = 0
+    shader.inputs['Specular IOR Level'].default_value = 0
     texture = nodes.new('ShaderNodeTexImage')
     node_tree.links.new(texture.outputs[0], shader.inputs[0])
     node_tree.links.new(shader.outputs[0], output.inputs[0])

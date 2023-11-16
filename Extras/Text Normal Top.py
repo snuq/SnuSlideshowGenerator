@@ -43,7 +43,7 @@ def extra(data):
     lamp1 = bpy.context.active_object
     lamp1.name = name+' Lamp Front Right'
     lamp1.parent = text
-    lamp1.location = (1.454, 1.1 , 10.557)
+    lamp1.location = (1.454, 1.1, 10.557)
     lamp1.data.energy = 0.5
     bpy.ops.object.light_add(type='POINT')
     lamp2 = bpy.context.active_object
@@ -57,4 +57,3 @@ def extra(data):
     lamp3.parent = text
     lamp3.location = (0, 0.168, -11.44)
     lamp3.data.energy = 2.14
-    lamp3.data.distance = 56

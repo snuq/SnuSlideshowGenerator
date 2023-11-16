@@ -17,7 +17,7 @@ def extra(data):
         if node.type == 'BSDF_PRINCIPLED':
             shader = node
             shader.inputs["Base Color"].default_value = (0.411, 0.411, 0.411, 1)
-            shader.inputs["Emission"].default_value = (0.411, 0.411, 0.411, 1)
+            shader.inputs["Emission Strength"].default_value = 0.411
             shader.inputs["Roughness"].default_value = 0.2
             shader.inputs["Alpha"].default_value = 0.333
 

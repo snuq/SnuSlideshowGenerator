@@ -13,7 +13,6 @@ def extra(data):
     background_lamp = bpy.context.active_object
     background_lamp.data.spot_size = 1.48353
     background_lamp.data.energy = 50
-    background_lamp.data.distance = 5
     background_lamp.data.shadow_soft_size = 0.05
     background_plane.parent = camera
     background_lamp.parent = camera
@@ -25,5 +24,5 @@ def extra(data):
     for node in nodes:
         if node.type == 'BSDF_PRINCIPLED':
             background_shaded = node
-    background_shaded.inputs["Emission"].default_value = (extra_amount, extra_amount, extra_amount, 1)
+    background_shaded.inputs["Emission Strength"].default_value = extra_amount
     background_shaded.inputs["Base Color"].default_value = (1, 1, 1, 1)

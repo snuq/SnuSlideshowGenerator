@@ -34,8 +34,8 @@ bl_info = {
     "name": "Snu Slideshow Generator",
     "description": "Assists in creating image slideshows with a variety of options.",
     "author": "Hudson Barkley (Snu)",
-    "version": (0, 84, 0),
-    "blender": (2, 92, 0),
+    "version": (0, 85, 0),
+    "blender": (4, 0, 0),
     "location": "3D View Sideobar, 'Slideshow' tab.",
     "wiki_url": "https://github.com/snuq/SnuSlideshowGenerator",
     "category": "Import-Export"
@@ -140,6 +140,12 @@ transforms = [
         'zRot': [(-10, 1), (0, 1)]
     }
 ]
+
+
+def get_image(filepath):
+    for image in bpy.data.images:
+        if image.filepath == filepath:
+            return image
 
 
 def update_scene(scene):
@@ -571,7 +577,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
         image_scene.eevee.taa_render_samples = generator_scene.snu_slideshow_generator.render_samples
 
         #Set up image_scene render settings
-        image_scene_frames = (get_fps(image_scene) * image_plane.slideshow.length)
+        image_scene_frames = int(get_fps(image_scene) * image_plane.slideshow.length)
         image_scene.frame_end = image_scene_frames
 
         target_empty = generator_scene.objects[image_plane.slideshow.target]
@@ -733,36 +739,85 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
         clip = generator_scene.sequence_editor.sequences.new_scene(scene=image_scene, name=image_scene.name, channel=((i % 2) + 1), frame_start=image_scene_start)
 
     else:
+        print('Importing Clip: '+image_scene_name)
+        image_scene_frames = image_plane.slideshow.videolength
+        rotate = image_plane.slideshow.rotate
+
+        #Decide if a blurred background clip is needed
+        aspect = aspect_ratio(generator_scene)
         clipx = image_plane.dimensions[0]
         clipy = image_plane.dimensions[1]
-        aspect = aspect_ratio(generator_scene)
         clip_aspect = clipx / clipy
-        clip_aspect_flipped = clipy / clipx
         aspect_difference = abs(aspect - clip_aspect)
         if aspect_difference > 0.1:
             blur_background = image_plane.slideshow.videobackground
         else:
             blur_background = False
-        bpy.ops.sequencer.select_all(action='DESELECT')
-        print('Importing Clip: '+image_scene_name)
-        #Import video clip
+
+        #Determine channel to put clips in
         base_channel = ((i % 2) + 1)
         blur_base_channel = base_channel
         if blur_background:
-            base_channel = base_channel + 4
+            base_channel = base_channel + 3
+
+        #Generate video clip(s)
+        bpy.ops.sequencer.select_all(action='DESELECT')
         clip = generator_scene.sequence_editor.sequences.new_movie(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel, frame_start=image_scene_start)
+        flipped = False
+        if rotate == '90':
+            flipped = True
+            clip.transform.rotation = 0 - math.pi/2
+        elif rotate == '180':
+            clip.transform.rotation = math.pi
+        elif rotate == '-90':
+            flipped = True
+            clip.transform.rotation = math.pi / 2
         if blur_background:
             blur_clip = generator_scene.sequence_editor.sequences.new_movie(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=blur_base_channel, frame_start=image_scene_start)
+            blur_clip.transform.rotation = clip.transform.rotation
         else:
             blur_clip = None
-        image_scene_frames = image_plane.slideshow.videolength
 
+        #Set scaling of clip and blur clip
+        image = get_image(image_plane.slideshow.videofile)
+        clip_x = image.size[0]
+        clip_y = image.size[1]
+
+        render = generator_scene.render
+        scene_x = render.resolution_x
+        scene_y = render.resolution_y
+        video_aspect = clip_x / clip_y
+
+        if video_aspect <= aspect:
+            #video is less wide aspect than the scene, scale to height
+            if not flipped:
+                video_scale = scene_y / clip_y
+                blur_scale = scene_x / clip_x
+            else:
+                video_scale = scene_y / clip_x
+                blur_scale = scene_x / clip_y
+        else:  #if video_aspect > scene_aspect:
+            #video is more wide aspect than the scene, scale to width
+            if not flipped:
+                video_scale = scene_x / clip_x
+                blur_scale = scene_y / clip_y
+            else:
+                video_scale = scene_x / clip_y
+                blur_scale = scene_y / clip_x
+
+        clip.transform.scale_x = video_scale
+        clip.transform.scale_y = video_scale
+        if blur_background:
+            blur_clip.transform.scale_x = blur_scale
+            blur_clip.transform.scale_y = blur_scale
+
+        #Add other clips
         speed_clip = None
         audioclip = None
         blur_speed_clip = None
         blur_blur_clip = None
         if image_plane.slideshow.videoaudio:
-            audioclip = generator_scene.sequence_editor.sequences.new_sound(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel + 4, frame_start=image_scene_start)
+            audioclip = generator_scene.sequence_editor.sequences.new_sound(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel + 2, frame_start=image_scene_start)
             if audioclip.frame_duration == 0:
                 generator_scene.sequence_editor.sequences.remove(audioclip)
                 print('No Audio Found For This Clip')
@@ -784,10 +839,11 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
                 length_percent = image_scene_frames / clip.frame_final_duration
                 if audioclip.frame_final_duration != clip.frame_final_duration:
                     speed_clip = generator_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=clip.channel+1, seq1=clip, frame_start=clip.frame_final_start)
-                    clip.frame_final_duration = audioclip.frame_final_duration
+                    if audioclip.frame_final_duration > 1:
+                        clip.frame_final_duration = audioclip.frame_final_duration
                     if blur_background:
                         blur_speed_clip = generator_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=blur_clip.channel+1, seq1=blur_clip, frame_start=blur_clip.frame_final_start)
-                        blur_clip.frame_final_duration = audioclip.frame_final_duration
+                        blur_clip.frame_final_duration = clip.frame_final_duration
                 image_scene_frames = audioclip.frame_final_duration * length_percent
 
         if speed_clip:
@@ -806,84 +862,21 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
         apply_transform.select = True
         if blur_background:
             blur_apply_transform.select = True
-        scale_clip = generator_scene.sequence_editor.sequences.new_effect(name='Transform', type='TRANSFORM', channel=apply_transform.channel+1, seq1=apply_transform, frame_start=apply_transform.frame_final_start)
         if blur_background:
-            scale_clip.blend_type = 'ALPHA_OVER'
-            clip.mute = True
-            if speed_clip:
-                speed_clip.mute = True
-            blur_scale_clip = generator_scene.sequence_editor.sequences.new_effect(name='Transform', type='TRANSFORM', channel=blur_apply_transform.channel+1, seq1=blur_apply_transform, frame_start=blur_apply_transform.frame_final_start)
-            blur_blur_clip = generator_scene.sequence_editor.sequences.new_effect(name='Blur', type='GAUSSIAN_BLUR', channel=blur_apply_transform.channel+2, seq1=blur_scale_clip, frame_start=blur_apply_transform.frame_final_start)
+            blur_blur_clip = generator_scene.sequence_editor.sequences.new_effect(name='Blur', type='GAUSSIAN_BLUR', channel=blur_apply_transform.channel+1, seq1=blur_apply_transform, frame_start=blur_apply_transform.frame_final_start)
             blur_blur_clip.size_x = 40
             blur_blur_clip.size_y = 40
-        else:
-            blur_scale_clip = None
-        rotate = image_plane.slideshow.rotate
-        if rotate == '90':
-            scale_clip.rotation_start = -90
-            if blur_background:
-                blur_scale_clip.rotation_start = -90
-        elif rotate == '180':
-            scale_clip.rotation_start = 180
-            if blur_background:
-                blur_scale_clip.rotation_start = 180
-        elif rotate == '-90':
-            scale_clip.rotation_start = 90
-            if blur_background:
-                blur_scale_clip.rotation_start = 90
-        if rotate == '90' or rotate == '-90':
-            multiplier = aspect
-            if aspect < clip_aspect_flipped:
-                #clip is wider than the scene
-                scalex = clip_aspect_flipped / aspect
-                scaley = 1
-                blur_scalex = 1
-                blur_scaley = aspect / clip_aspect_flipped
-            else:
-                #scene is wider than the clip
-                scalex = aspect / clip_aspect_flipped
-                scaley = 1
-                blur_scalex = 1
-                blur_scaley = clip_aspect_flipped / aspect
-            scale_clip.scale_start_x = scaley / multiplier
-            scale_clip.scale_start_y = scalex / multiplier
-            if blur_background:
-                blur_scale_clip.scale_start_x = blur_scaley * multiplier
-                blur_scale_clip.scale_start_y = blur_scalex * multiplier
-
-        else:
-            if clip_aspect > aspect:
-                #clip is wider than the scene
-                scalex = 1
-                scaley = aspect / clip_aspect
-                blur_scalex = clip_aspect / aspect
-                blur_scaley = 1
-            else:
-                #scene is wider than the clip
-                scalex = clip_aspect / aspect
-                scaley = 1
-                blur_scalex = 1
-                blur_scaley = aspect / clip_aspect
-            scale_clip.scale_start_x = scalex
-            scale_clip.scale_start_y = scaley
-            if blur_background:
-                blur_scale_clip.scale_start_x = blur_scalex
-                blur_scale_clip.scale_start_y = blur_scaley
 
         #Create meta strip
         generator_scene.sequence_editor.active_strip = clip
         if blur_clip:
             blur_clip.select = True
-        if blur_scale_clip:
-            blur_scale_clip.select = True
         if blur_speed_clip:
             blur_speed_clip.select = True
         if blur_blur_clip:
             blur_blur_clip.select = True
         if speed_clip:
             speed_clip.select = True
-        if scale_clip:
-            scale_clip.select = True
         if audioclip:
             audioclip.select = True
         clip.select = True
@@ -895,7 +888,6 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
         clip.frame_offset_start = offset
         clip.frame_start = image_scene_start - offset
         #image_scene_frames = int(image_plane.slideshow.length * get_fps(generator_scene))
-        clip.frame_final_end = clip.frame_final_start + image_scene_frames
         if blur_background:
             clip.channel = blur_base_channel
         else:
@@ -986,15 +978,14 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
                 pass
             else:
                 effect = generator_scene.sequence_editor.sequences.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.frame_final_start, frame_end=first_sequence.frame_final_end, type='CROSS', seq1=first_sequence, seq2=second_sequence)
-                effect.frame_still_end = first_sequence.frame_final_end  #apparently needed since the frame_end doesnt get set in the previous function...
 
     #Add fade out
     if i == (len(images) - 1):
         clip.blend_type = 'ALPHA_OVER'
-        generator_scene.frame_current = image_scene_start + image_scene_frames
+        generator_scene.frame_current = int(image_scene_start + image_scene_frames)
         clip.blend_alpha = 0
         clip.keyframe_insert(data_path='blend_alpha')
-        generator_scene.frame_current = image_scene_start + image_scene_frames - generator_scene.snu_slideshow_generator.crossfade_length
+        generator_scene.frame_current = int(image_scene_start + image_scene_frames - generator_scene.snu_slideshow_generator.crossfade_length)
         clip.blend_alpha = 1
         clip.keyframe_insert(data_path='blend_alpha')
         generator_scene.frame_current = 1
@@ -1442,8 +1433,12 @@ class SnuSlideshowPreviewMode(bpy.types.Operator):
             if sequence.type == 'SCENE':
                 scene = sequence.scene
                 if self.mode == 'halfsize':
+                    sequence.transform.scale_x = 2
+                    sequence.transform.scale_y = 2
                     scene.render.resolution_percentage = 50
                 elif self.mode == 'fullsize':
+                    sequence.transform.scale_x = 1
+                    sequence.transform.scale_y = 1
                     scene.render.resolution_percentage = 100
         return{'FINISHED'}
 
