@@ -339,6 +339,11 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
     image_plane = add_object(generator_scene, image.name, 'MESH', mesh_verts=verts, mesh_faces=faces)
     image_plane.slideshow.name = image_plane.name
     add_constraints(image_plane, 'Plane')
+        
+    #check if horizontal locations / constraints should be extended for wide images  
+    additional_width_offset = 0
+    if (ix > aspect_ratio(bpy.context.scene)/2):
+        additional_width_offset = ix - aspect_ratio(bpy.context.scene)/2
 
     if video:
         image_plane.slideshow.locklength = True
@@ -404,7 +409,7 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
         target_empty = add_object(generator_scene, image_plane.name+' Target', 'EMPTY')
         target_empty.parent = image_plane
         target_empty.empty_display_size = 1
-        add_constraints(target_empty, 'Target')
+        add_constraints(target_empty, 'Target', additional_width_offset)
         image_plane.slideshow.target = target_empty.name
 
         #add view empty
@@ -413,13 +418,13 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
         view_empty.empty_display_size = 1
         view_empty.scale = aspect_ratio(generator_scene) / 2, .5, .001
         view_empty.empty_display_type = 'CUBE'
-        add_constraints(view_empty, 'View')
+        add_constraints(view_empty, 'View', additional_width_offset)
         image_plane.slideshow.view = view_empty.name
 
     #add text next to plane saying which index number it is
     index_text = add_object(generator_scene, image_plane.name+' Index', 'FONT')
     index_text.parent = image_plane
-    index_text.location = (-1, -.33, 0)
+    index_text.location = (-1 - additional_width_offset, -.33, 0)
     index_text.data.align_x = 'RIGHT'
     add_constraints(index_text, 'Text')
 
@@ -427,21 +432,21 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
         #add text next to plane saying which transform was picked
         transform_text = add_object(generator_scene, image_plane.name+' Transform', 'FONT')
         transform_text.parent = image_plane
-        transform_text.location = (1, 0, 0)
+        transform_text.location = (1 + additional_width_offset, 0, 0)
         transform_text.scale = .15, .15, 1
         add_constraints(transform_text, 'Text')
 
         #add text next to plane saying which extra was picked
         extra_text = add_object(generator_scene, image_plane.name+' Extra', 'FONT')
         extra_text.parent = image_plane
-        extra_text.location = (1, -.25, 0)
+        extra_text.location = (1 + additional_width_offset, -.25, 0)
         extra_text.scale = .15, .15, 1
         add_constraints(extra_text, 'Text')
 
     #add text next to plane saying how long the slide is
     length_text = add_object(generator_scene, image_plane.name+' Length', 'FONT')
     length_text.parent = image_plane
-    length_text.location = (1, .25, 0)
+    length_text.location = (1 + additional_width_offset, .25, 0)
     length_text.scale = .15, .15, 1
     add_constraints(length_text, 'Text')
 
@@ -468,7 +473,7 @@ def import_slideshow_image(image, image_number, slide_length, generator_scene, v
     return image_plane
 
 
-def add_constraints(constraint_object, constraint_type):
+def add_constraints(constraint_object, constraint_type, width_offset=0):
     #This function handles adding constraints to the various objects of the slideshow generator scene
     #bpy.context.view_layer.objects.active = constraint_object
     rotation_constraint = constraint_object.constraints.new(type='LIMIT_ROTATION')
@@ -484,8 +489,8 @@ def add_constraints(constraint_object, constraint_type):
     #set up local location constraint
     constraint_object.constraints[1].owner_space = 'LOCAL'
     if constraint_type == 'Target' or constraint_type == 'View':
-        location_constraint.min_x = -1 * (aspect_ratio(bpy.context.scene)/2)
-        location_constraint.max_x = aspect_ratio(bpy.context.scene) / 2
+        location_constraint.min_x = -1 * (aspect_ratio(bpy.context.scene)/2) - width_offset
+        location_constraint.max_x = aspect_ratio(bpy.context.scene)/2 + width_offset
         location_constraint.min_y = -.5
         location_constraint.max_y = .5
     else:
