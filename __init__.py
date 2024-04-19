@@ -2356,6 +2356,7 @@ class SnuSlideshowCreate(bpy.types.Operator):
 
         #Set up the Slideshow scene
         clear_sequencer(generator_scene)
+        generator_scene.animation_data_clear()
         image_scene_start = 1
 
         #Create a copy of the currently active and selected objects so they can be re-set later
