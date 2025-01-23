@@ -230,8 +230,8 @@ def create_scene(oldscene, scenename):
 
     #Set variables that are specific to the slideshow scene
     newscene.render.film_transparent = False
-    newscene.render.engine = 'BLENDER_EEVEE'
-    newscene.eevee.shadow_cube_size = '1024'
+    newscene.render.engine = 'BLENDER_EEVEE_NEW' #Updated to work with Blender 4.3.2
+    newscene.eevee.shadow_pool_size = '1024' #Updated to work with Blender 4.3.2
     newscene.render.resolution_percentage = 100
     newscene.render.image_settings.color_mode = 'RGB'
     return newscene
