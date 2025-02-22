@@ -142,6 +142,14 @@ transforms = [
 ]
 
 
+def get_extensions_image():
+    return list(bpy.path.extensions_image) + [x.upper() for x in list(bpy.path.extensions_image)]
+
+
+def get_extensions_video():
+    return list(bpy.path.extensions_movie) + [x.upper() for x in list(bpy.path.extensions_movie)]
+
+
 def get_image(filepath):
     for image in bpy.data.images:
         if image.filepath == filepath:
@@ -1521,11 +1529,11 @@ class SSG_PT_Panel(bpy.types.Panel):
             row = layout.row()
             row.operator('slideshow.generator', text='Slideshow In This Scene').mode = 'direct'
             #get list of images in image_directory, gray out generator button if none found
-            image_types = list(bpy.path.extensions_image)
+            image_types = get_extensions_image()
             image_list = []
             for image_type in image_types:
                 image_list.extend(glob.glob(bpy.path.abspath(context.scene.snu_slideshow_generator.image_directory)+'*'+image_type))
-            video_types = list(bpy.path.extensions_movie)
+            video_types = get_extensions_video()
             for video_type in video_types:
                 image_list.extend(glob.glob(bpy.path.abspath(context.scene.snu_slideshow_generator.image_directory)+'*'+video_type))
             if not image_list:
@@ -1819,12 +1827,12 @@ class SnuSlideshowAddSlide(bpy.types.Operator):
             if os.path.isfile(filename):
                 #The file is a real file
                 extension = os.path.splitext(filename)[1].lower()
-                if extension in bpy.path.extensions_image:
+                if extension in get_extensions_image():
                     #The file is a known image file type, load it
                     image = load_image(filename)
                     image_number = len(list_slides(generator_scene))
                     last_image = import_slideshow_image(image, image_number, generator_scene.snu_slideshow_generator.slide_length, generator_scene, video=False, last_image=last_image)
-                elif extension in bpy.path.extensions_movie:
+                elif extension in get_extensions_video():
                     #The file is a known video file type, load it
                     image = load_image(filename)
                     image_number = len(list_slides(generator_scene))
@@ -2455,8 +2463,8 @@ class SnuSlideshowGenerator(bpy.types.Operator):
 
         slide_length = context.scene.snu_slideshow_generator.slide_length
         image_directory = context.scene.snu_slideshow_generator.image_directory
-        image_types = list(bpy.path.extensions_image)
-        video_types = list(bpy.path.extensions_movie)
+        image_types = get_extensions_image()
+        video_types = get_extensions_video()
 
         #get list of images in image_directory
         image_list = []
