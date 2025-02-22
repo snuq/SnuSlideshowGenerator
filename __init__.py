@@ -34,8 +34,8 @@ bl_info = {
     "name": "Snu Slideshow Generator",
     "description": "Assists in creating image slideshows with a variety of options.",
     "author": "Hudson Barkley (Snu)",
-    "version": (0, 85, 0),
-    "blender": (4, 0, 0),
+    "version": (0, 86, 0),
+    "blender": (4, 3, 2),
     "location": "3D View Sideobar, 'Slideshow' tab.",
     "wiki_url": "https://github.com/snuq/SnuSlideshowGenerator",
     "category": "Import-Export"
@@ -230,8 +230,8 @@ def create_scene(oldscene, scenename):
 
     #Set variables that are specific to the slideshow scene
     newscene.render.film_transparent = False
-    newscene.render.engine = 'BLENDER_EEVEE'
-    newscene.eevee.shadow_cube_size = '1024'
+    newscene.render.engine = 'BLENDER_EEVEE_NEXT'
+    newscene.eevee.shadow_pool_size = '1024'
     newscene.render.resolution_percentage = 100
     newscene.render.image_settings.color_mode = 'RGB'
     return newscene
