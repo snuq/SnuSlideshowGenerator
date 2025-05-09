@@ -13,8 +13,9 @@ def extra(data):
     node_input.location = (-100, 400)
     node_glare = nodes.new(type="CompositorNodeGlare")
     node_glare.location = (150, 400)
-    node_glare.threshold = 1 - (extra_amount / 1.5)
     node_glare.quality = 'LOW'
+    node_glare.inputs['Threshold'].default_value = 1 - (extra_amount / 1.5)
+    node_glare.inputs['Strength'].default_value = 2
     node_output = nodes.new(type="CompositorNodeComposite")
     node_output.location = (400, 400)
     links = image_scene.node_tree.links
