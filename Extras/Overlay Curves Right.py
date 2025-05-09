@@ -42,6 +42,8 @@ def extra(data):
     modifier.offset = 227.9
     fcurvey = circle1.animation_data.action.fcurves.new('location', index=1)
     fcurvey.keyframe_points.insert(1, value=0.535)
+    if not circle1.animation_data.action_slot:
+        circle1.animation_data.action_slot = circle1.animation_data.action.slots[0]
     modifier = fcurvey.modifiers.new('NOISE')
     modifier.scale = 100
     modifier.strength = 0.2
@@ -69,6 +71,8 @@ def extra(data):
     modifier.offset = 0
     fcurvey = circle2.animation_data.action.fcurves.new('location', index=1)
     fcurvey.keyframe_points.insert(1, value=0.23)
+    if not circle2.animation_data.action_slot:
+        circle2.animation_data.action_slot = circle2.animation_data.action.slots[0]
     modifier = fcurvey.modifiers.new('NOISE')
     modifier.scale = 100
     modifier.strength = 0.2
@@ -96,6 +100,8 @@ def extra(data):
     modifier.offset = 0
     fcurvey = circle3.animation_data.action.fcurves.new('location', index=1)
     fcurvey.keyframe_points.insert(1, value=-0.05)
+    if not circle3.animation_data.action_slot:
+        circle3.animation_data.action_slot = circle3.animation_data.action.slots[0]
     modifier = fcurvey.modifiers.new('NOISE')
     modifier.scale = 100
     modifier.strength = 0.2

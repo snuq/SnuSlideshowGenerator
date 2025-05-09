@@ -239,7 +239,9 @@ def create_scene(oldscene, scenename):
     #Set variables that are specific to the slideshow scene
     newscene.render.film_transparent = False
     newscene.render.engine = 'BLENDER_EEVEE_NEXT'
-    newscene.eevee.shadow_pool_size = '1024'
+    newscene.eevee.use_shadows = True
+    newscene.eevee.shadow_ray_count = 4
+    newscene.eevee.shadow_step_count = 4
     newscene.render.resolution_percentage = 100
     newscene.render.image_settings.color_mode = 'RGB'
     return newscene
@@ -691,6 +693,9 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
                 point.handle_left = (pointx - pointsize, pointy)
                 point.handle_right = (pointx + pointsize, pointy)
 
+        if not transform_empty.animation_data.action_slot:
+            transform_empty.animation_data.action_slot = transform_action.slots[0]
+
         #set up camera location scale and animation
         camera = add_object(image_scene, generator_scene.name+' Camera', 'CAMERA')
         camera.parent = transform_empty
@@ -771,7 +776,6 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
         #Generate video clip(s)
         bpy.ops.sequencer.select_all(action='DESELECT')
         clip = generator_scene.sequence_editor.sequences.new_movie(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel, frame_start=image_scene_start)
-        original_frames = clip.frame_final_duration
         flipped = False
         if rotate == '90':
             flipped = True
@@ -844,11 +848,6 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
                 audioclip.volume = 0
                 audioclip.keyframe_insert(data_path='volume')
                 length_percent = image_scene_frames / clip.frame_final_duration
-                if audioclip.frame_final_duration != clip.frame_final_duration:
-                    if audioclip.frame_final_duration > 1:
-                        clip.frame_final_duration = audioclip.frame_final_duration
-                    if blur_background:
-                        blur_clip.frame_final_duration = clip.frame_final_duration
                 image_scene_frames = audioclip.frame_final_duration * length_percent
 
         apply_transform = clip
@@ -874,6 +873,7 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
         if audioclip:
             audioclip.select = True
         clip.select = True
+
         bpy.ops.sequencer.meta_make()
         clip = generator_scene.sequence_editor.active_strip
 
@@ -881,6 +881,8 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
         offset = image_plane.slideshow.videooffset
         clip.frame_offset_start = offset
         clip.frame_start = image_scene_start - offset
+        if image_plane.slideshow.videolength < clip.frame_final_duration:
+            clip.frame_final_duration = image_plane.slideshow.videolength
         #image_scene_frames = int(image_plane.slideshow.length * get_fps(generator_scene))
         if blur_background:
             clip.channel = blur_base_channel

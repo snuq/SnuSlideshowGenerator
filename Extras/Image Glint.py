@@ -22,4 +22,5 @@ def extra(data):
     fcurve = lamp_action.fcurves.new('rotation_euler', index=1)
     point = fcurve.keyframe_points.insert(frame=image_scene.frame_start, value=-3.1415926)
     point = fcurve.keyframe_points.insert(frame=image_scene.frame_end, value=3.1415926)
-
+    if not lamp.animation_data.action_slot:
+        lamp.animation_data.action_slot = lamp_action.slots[0]
