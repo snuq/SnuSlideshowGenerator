@@ -34,8 +34,8 @@ bl_info = {
     "name": "Snu Slideshow Generator",
     "description": "Assists in creating image slideshows with a variety of options.",
     "author": "Hudson Barkley (Snu)",
-    "version": (0, 86, 0),
-    "blender": (4, 3, 2),
+    "version": (0, 87, 0),
+    "blender": (4, 4, 0),
     "location": "3D View Sideobar, 'Slideshow' tab.",
     "wiki_url": "https://github.com/snuq/SnuSlideshowGenerator",
     "category": "Import-Export"
@@ -766,11 +766,12 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
         base_channel = ((i % 2) + 1)
         blur_base_channel = base_channel
         if blur_background:
-            base_channel = base_channel + 3
+            base_channel = base_channel + 2
 
         #Generate video clip(s)
         bpy.ops.sequencer.select_all(action='DESELECT')
         clip = generator_scene.sequence_editor.sequences.new_movie(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel, frame_start=image_scene_start)
+        original_frames = clip.frame_final_duration
         flipped = False
         if rotate == '90':
             flipped = True
@@ -820,12 +821,10 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
             blur_clip.transform.scale_y = blur_scale
 
         #Add other clips
-        speed_clip = None
         audioclip = None
-        blur_speed_clip = None
         blur_blur_clip = None
         if image_plane.slideshow.videoaudio:
-            audioclip = generator_scene.sequence_editor.sequences.new_sound(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel + 2, frame_start=image_scene_start)
+            audioclip = generator_scene.sequence_editor.sequences.new_sound(filepath=image_plane.slideshow.videofile, name=image_plane.name, channel=base_channel + 1, frame_start=image_scene_start)
             if audioclip.frame_duration == 0:
                 generator_scene.sequence_editor.sequences.remove(audioclip)
                 print('No Audio Found For This Clip')
@@ -846,26 +845,17 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
                 audioclip.keyframe_insert(data_path='volume')
                 length_percent = image_scene_frames / clip.frame_final_duration
                 if audioclip.frame_final_duration != clip.frame_final_duration:
-                    speed_clip = generator_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=clip.channel+1, seq1=clip, frame_start=clip.frame_final_start)
                     if audioclip.frame_final_duration > 1:
                         clip.frame_final_duration = audioclip.frame_final_duration
                     if blur_background:
-                        blur_speed_clip = generator_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=blur_clip.channel+1, seq1=blur_clip, frame_start=blur_clip.frame_final_start)
                         blur_clip.frame_final_duration = clip.frame_final_duration
                 image_scene_frames = audioclip.frame_final_duration * length_percent
 
-        if speed_clip:
-            apply_transform = speed_clip
-            if blur_background:
-                blur_apply_transform = blur_speed_clip
-            else:
-                blur_apply_transform = None
+        apply_transform = clip
+        if blur_background:
+            blur_apply_transform = blur_clip
         else:
-            apply_transform = clip
-            if blur_background:
-                blur_apply_transform = blur_clip
-            else:
-                blur_apply_transform = None
+            blur_apply_transform = None
         #Properly scale the clip
         apply_transform.select = True
         if blur_background:
@@ -879,12 +869,8 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
         generator_scene.sequence_editor.active_strip = clip
         if blur_clip:
             blur_clip.select = True
-        if blur_speed_clip:
-            blur_speed_clip.select = True
         if blur_blur_clip:
             blur_blur_clip.select = True
-        if speed_clip:
-            speed_clip.select = True
         if audioclip:
             audioclip.select = True
         clip.select = True
@@ -962,7 +948,6 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
                     invert_modifier = effect.modifiers.new(name='Invert Colors', type='CURVES')
                     invert_modifier.curve_mapping.curves[3].points[0].location = (0, 1)
                     invert_modifier.curve_mapping.curves[3].points[1].location = (1, 0)
-                effect_speed = generator_scene.sequence_editor.sequences.new_effect(name='Speed', type='SPEED', channel=effect.channel + 1, seq1=effect, frame_start=effect.frame_final_start)
                 effect_final = generator_scene.sequence_editor.sequences.new_effect(name='Color', type='COLOR', channel=effect.channel, frame_start=effect.frame_final_end, frame_end=effect.frame_final_end + 1)
                 effect_final.frame_final_end = effect_final.frame_final_start + 1
                 effect_final.color = end_color
@@ -970,7 +955,6 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
                 effect_start.frame_final_end = effect_start.frame_final_start + 1
                 effect_start.color = start_color
                 effect.select = True
-                effect_speed.select = True
                 effect_final.select = True
                 effect_start.select = True
                 bpy.ops.sequencer.meta_make()
