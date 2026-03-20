@@ -33,14 +33,14 @@ def extra(data):
     circle1.location = (0, 0, -0.73)
     circle1.animation_data_create()
     circle1.animation_data.action = bpy.data.actions.new('circle1')
-    fcurvex = circle1.animation_data.action.fcurves.new('location', index=0)
+    fcurvex = circle1.animation_data.action.fcurve_ensure_for_datablock(circle1, 'location', index=0)
     keyframe = fcurvex.keyframe_points.insert(1, value=-0.59)
     keyframe.co[1] = keyframe.co[1] - ((extra_amount - .5) / 3)
     modifier = fcurvex.modifiers.new('NOISE')
     modifier.scale = 100
     modifier.strength = 0.1
     modifier.offset = 227.9
-    fcurvey = circle1.animation_data.action.fcurves.new('location', index=1)
+    fcurvey = circle1.animation_data.action.fcurve_ensure_for_datablock(circle1, 'location', index=1)
     fcurvey.keyframe_points.insert(1, value=0.535)
     if not circle1.animation_data.action_slot:
         circle1.animation_data.action_slot = circle1.animation_data.action.slots[0]
@@ -62,14 +62,14 @@ def extra(data):
     circle2.location = (0, 0, -0.93)
     circle2.animation_data_create()
     circle2.animation_data.action = bpy.data.actions.new('circle2')
-    fcurvex = circle2.animation_data.action.fcurves.new('location', index=0)
+    fcurvex = circle2.animation_data.action.fcurve_ensure_for_datablock(circle2, 'location', index=0)
     keyframe = fcurvex.keyframe_points.insert(1, value=-0.714)
     keyframe.co[1] = keyframe.co[1] - ((extra_amount - .5) / 3)
     modifier = fcurvex.modifiers.new('NOISE')
     modifier.scale = 100
     modifier.strength = 0.1
     modifier.offset = 0
-    fcurvey = circle2.animation_data.action.fcurves.new('location', index=1)
+    fcurvey = circle2.animation_data.action.fcurve_ensure_for_datablock(circle2, 'location', index=1)
     fcurvey.keyframe_points.insert(1, value=0.23)
     if not circle2.animation_data.action_slot:
         circle2.animation_data.action_slot = circle2.animation_data.action.slots[0]
@@ -91,14 +91,14 @@ def extra(data):
     circle3.location = (0, 0, -1.1)
     circle3.animation_data_create()
     circle3.animation_data.action = bpy.data.actions.new('circle3')
-    fcurvex = circle3.animation_data.action.fcurves.new('location', index=0)
+    fcurvex = circle3.animation_data.action.fcurve_ensure_for_datablock(circle3, 'location', index=0)
     keyframe = fcurvex.keyframe_points.insert(1, value=-1.1)
     keyframe.co[1] = keyframe.co[1] - ((extra_amount - .5) / 3)
     modifier = fcurvex.modifiers.new('NOISE')
     modifier.scale = 100
     modifier.strength = 0.1
     modifier.offset = 0
-    fcurvey = circle3.animation_data.action.fcurves.new('location', index=1)
+    fcurvey = circle3.animation_data.action.fcurve_ensure_for_datablock(circle3, 'location', index=1)
     fcurvey.keyframe_points.insert(1, value=-0.05)
     if not circle3.animation_data.action_slot:
         circle3.animation_data.action_slot = circle3.animation_data.action.slots[0]

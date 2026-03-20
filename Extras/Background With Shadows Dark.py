@@ -37,6 +37,7 @@ def extra(data):
     background_bump = nodes.new("ShaderNodeBump")
     background_bump.invert = True
     background_bump.inputs["Strength"].default_value = 0.5
+    background_bump.inputs["Distance"].default_value = 1
     node_tree.links.new(background_tex_one.outputs["Distance"], background_tex_mix.inputs[1])
     node_tree.links.new(background_tex_two.outputs["Fac"], background_tex_mix.inputs[2])
     node_tree.links.new(background_tex_mix.outputs[0], background_bump.inputs["Height"])

@@ -19,7 +19,7 @@ def extra(data):
     lamp.animation_data_create()
     lamp_action = bpy.data.actions.new('Sun Lamp Glint')
     lamp.animation_data.action = lamp_action
-    fcurve = lamp_action.fcurves.new('rotation_euler', index=1)
+    fcurve = lamp_action.fcurve_ensure_for_datablock(lamp, 'rotation_euler', index=1)
     point = fcurve.keyframe_points.insert(frame=image_scene.frame_start, value=-3.1415926)
     point = fcurve.keyframe_points.insert(frame=image_scene.frame_end, value=3.1415926)
     if not lamp.animation_data.action_slot:
