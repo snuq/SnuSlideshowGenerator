@@ -929,10 +929,8 @@ def create_slideshow_slide(image_plane, i, generator_scene, image_scene_start, i
             second_sequence = clip
             if previous_image_plane.slideshow.transition == "GAMMA_CROSS":
                 effect = generator_scene.sequence_editor.strips.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.left_handle, length=second_sequence.left_handle - first_sequence.right_handle, type='GAMMA_CROSS', input1=first_sequence, input2=second_sequence)
-                effect.frame_still_end = first_sequence.right_handle  #apparently needed since the frame_end doesnt get set in the previous function...
             elif previous_image_plane.slideshow.transition == "WIPE":
                 effect = generator_scene.sequence_editor.strips.new_effect(name=previous_image_clip.name+' to '+clip.name, channel=3, frame_start=second_sequence.left_handle, length=second_sequence.left_handle - first_sequence.right_handle, type='WIPE', input1=first_sequence, input2=second_sequence)
-                effect.frame_still_end = first_sequence.right_handle  #apparently needed since the frame_end doesnt get set in the previous function...
                 effect.transition_type = previous_image_plane.slideshow.wipe_type
                 effect.direction = previous_image_plane.slideshow.wipe_direction
                 if previous_image_plane.slideshow.wipe_soft:
